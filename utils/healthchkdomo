@@ -1,0 +1,174 @@
+#!/bin/bash
+#
+# $Id$
+#
+# Sample test:
+# 	 env PINGDEADLINE=60 EXTPING=hansrune.nxet NTPQ=OK GWSWITCH=LEDset DBGPRINT=echo $PWD/healthchkdomo 
+#
+# Sample crontab:
+#	12 * * * *  /usr/bin/env EXTPING=hansrune.net GWSWITCH=Router1 /opt/domoticz/share/healthchkdomo > /dev/null 2>&1
+#
+PROG=$( basename $0 ) 
+DIR=$( dirname $0 )
+MISSLIMIT=2
+LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
+LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
+LOGOK=${LOGOK:-"logger -t ${PROG} -p local2.info"}
+DBGPRINT=${DBGPRINT:-":"}
+SSHOPT="-o ConnectTimeout=30 -o StrictHostKeyChecking=no -o PasswordAuthentication=no -q -n"
+PATH="${PATH}:${DIR}"; export PATH
+#
+GWIP=$( netstat -rn | awk '/^0\.0\.0\.0/ { print $2 }' )
+GWIP=${GWIP:="192.168.0.1"}
+#
+# You may want to adjust these
+#
+PINGIP=${DEFGW:="$GWIP"}
+SERVICEPORT="8080"
+SERVICENAME="domoticz.sh"
+CHECKDIRS=${CHECKDIRS:="/opt/domoticz /var/log"}
+PINGDEADLINE=${PINGDEADLINE:-"7200"}
+#
+# No configurable items below here ...
+#
+DATETIME=$( date '+%F %T' )
+PINGSTATEFILE="/tmp/$PROG-pingdate"
+WHOCOUNT=$( who | wc -l )
+REBOOTMSG=""
+RC=""
+[[ "$1" = "-r" ]] && REBOOTMSG="Will try to reboot"
+
+doreboot () {
+    echo "$PROG: ${1}. ${REBOOTMSG}" >&2
+    ${LOGERR} "${1}. ${REBOOTMSG}"
+	if [[ -n "${REBOOTMSG}" ]] 
+	then
+		if uptime | grep -wq "min"
+		then
+			echo "$PROG: No reboot. Only minutes since last restart" >&2
+		else
+			sudo /sbin/init 6
+		fi
+        exit 3
+	fi
+	RC=2
+}
+
+loss=$( ping -qc 3 "$PINGIP" 2>&1 | sed -ne 's/.*, \([0-9][0-9]*\)% packet loss.*/\1/p' )
+${DBGPRINT} "Ping to $PINGIP has $loss % loss at $DATETIME" >&2
+if [[ -z "$loss" ]] || [[ "$loss" = 100 ]]
+then
+	[[ -z "${GWSWITCH}" ]] && doreboot "No response from gateway ($loss % loss)"
+fi
+
+if ssh ${SSHOPT} localhost uptime | grep -q average
+then
+    ${LOGOK} "Can ssh to myself" >&2
+else
+	doreboot "Cannot contact myself over network/ssh"
+fi
+
+for D in ${CHECKDIRS}
+do
+	if cd ${D}
+	then
+		${LOGOK} "Can chdir to $D" >&2
+	else
+		doreboot "Cannot change to directory {D}"
+	fi
+done
+
+
+if date '+%Y' | grep -q 1970
+then
+	doreboot "Year is 1970. No network time service"
+fi
+
+#
+# If ntp has good peers, no external pings are done
+# ...set NTPQ to nonblank to skip this test 
+#
+NTPTEST=""
+[[ -z "${NTPQ}" ]] && NTPTEST=$( ntpq -n -c peers |egrep '^\*' )
+if [[ -n ${EXTPING} ]] && [[ -z ${NTPTEST} ]]
+then
+	OKPING=""
+	DATENOW=$( date "+%s" )
+	for PINGIP in ${EXTPING}
+	do
+		loss=$( ping -qc 3 "$PINGIP" 2>&1 | sed -ne 's/.*, \([0-9][0-9]*\)% packet loss.*/\1/p' )
+		${DBGPRINT} "Ping to $PINGIP has $loss % loss" >&2
+		if [[ -z "$loss" ]] || [[ "$loss" = 100 ]]
+		then
+			${LOGINF} "No response from external ping $PINGIP ($loss % loss)"
+		else
+			OKPING="${PINGIP}"
+			break
+		fi
+	done
+	if [[ -n "${OKPING}" ]]
+	then
+		echo "${DATENOW}" > "${PINGSTATEFILE}" 
+		${LOGOK} "OK ping to $OKPING (${loss}% lost)" >&2
+	elif [[ -r "${PINGSTATEFILE}" ]]
+	then
+		LASTPINGOK=$( cat "${PINGSTATEFILE}" 2>/dev/null )
+		if (( LASTPINGOK + PINGDEADLINE < DATENOW ))
+		then
+			echo "$PROG: No ntp, nor ping to ${EXTPING} tests ok. Assuming disconnected" >&2 
+			${LOGERR} "No ntp, nor ping to ${EXTPING} tests ok. Assuming disconnected"
+			if [[ -n "${GWSWITCH}" ]]
+			then
+				echo "$PROG: Switching ${GWSWITCH} off"
+				${LOGERR}   "Switching ${GWSWITCH} off"
+				setdomoswitch "${GWSWITCH}" Off
+				sleep 3
+				setdomoswitch "${GWSWITCH}" Off
+				sleep 20
+				echo "$PROG: Switching ${GWSWITCH} on"
+				${LOGERR}   "Switching ${GWSWITCH} on"
+				setdomoswitch "${GWSWITCH}" On
+				sleep 3
+				setdomoswitch "${GWSWITCH}" On
+				sleep 3
+				setdomoswitch "${GWSWITCH}" On
+			fi
+			echo "${DATENOW}" > "${PINGSTATEFILE}" 
+		else
+			${DBGPRINT} "$PROG: $DATENOW is not $PINGDEADLINE seconds from $LASTPINGOK (ok or last reset time)"
+		fi
+	else
+		${DBGPRINT} "$PROG: Initializing $PINGSTATEFILE with $DATENOW"
+		echo "${DATENOW}" > "${PINGSTATEFILE}" 
+	fi
+fi
+
+if netstat -ant | grep -q "0.0.0.0:${SERVICEPORT}"
+then
+    ${LOGOK} "Service ${SERVICENAME} on port ${SERVICEPORT} has a listener" >&2
+    exit $RC
+fi
+
+if [[ "${WHOCOUNT}" != 0 ]]
+then
+    ${LOGINF} "Someone is logged on. No further actions" >&2
+    exit $RC
+fi
+
+${LOGERR} "Service ${SERVICENAME} on port ${SERVICEPORT} has no network listener"
+sudo service ${SERVICENAME} restart
+for n in 50 40 30 20 10 
+do
+    if netstat -ant | grep -q "0.0.0.0:${SERVICEPORT}"
+    then
+        ${LOGOK} "After service ${SERVICENAME} restart, port ${SERVICEPORT} has a listener" >&2
+        exit 1
+    fi
+    [[ -n "${REBOOTMSG}" ]] && ${LOGERR} "${SERVICENAME} service does not start. Will reboot in $n seconds"
+    sleep 10
+done
+doreboot "${SERVICENAME} service does not start"
+
+exit ${RC:-"0"}
+
+# vim:ts=4:sw=4

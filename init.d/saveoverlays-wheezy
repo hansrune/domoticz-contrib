@@ -1,0 +1,173 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          saveoverlays
+# Required-Start:    $local_fs $time
+# X-Stop-After:      $time
+# Required-Start:    $local_fs $time
+# Required-Stop:     $local_fs
+# Default-Start:     S
+# Default-Stop:      0 1 6
+# Short-Description: Save logs and files from overlay mounts
+# Description:       Save logs and files from overlay mounts
+### END INIT INFO
+
+# Do NOT "set -e"
+#
+# Testing hints:
+#	sudo mount -o remount,ro / 
+#	sudo env INIT_VERBOSE=yes /etc/init.d/saveoverlays stop
+#	cat /var/log/saveoverlays.log  
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+DESC="overlay filesystem sync"
+NAME=saveoverlays
+
+if [ -f "/etc/default/$NAME" ]; then
+    . "/etc/default/$NAME"
+fi
+TMPLOG=/tmp/$NAME.log
+LOGFILE=/var_org/log/$NAME.log
+
+SYNCDIRS=${SYNCDIRS:-$( mount | awk '/^overlay/ { print $3 ":"  $3 "_org" }' )}
+SYNCEXCLUDES=${SYNCEXCLUDES:-'--exclude .unionfs* --exclude .fuse_hidden* --exclude *.leases --exclude stats'}
+SYNCFLAGS=${SYNCFLAGS:-"-avH --inplace --delete"}
+
+# Check if we are running with read-only root
+# ROROOT=$( mount | egrep '^/dev/.*on / .*ro,' )
+ROROOT=$( awk '$2=="/" { print substr($4,1,2) }' /proc/mounts )
+DOSYNC=${FORCESYNC:-"$ROROOT"}
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	if [ "${ROROOT}" == "ro" ]
+	then
+		log_action_msg "Read-only root active"
+	else
+		log_action_msg "Read-only root inactive"
+	fi
+	if date '+%Y' | grep -q 1970
+	then
+		log_action_msg "Clock is not set. Trying fake-hwclock"
+		fake-hwclock load
+	fi
+}
+
+#
+# Function that syncs the files
+#
+do_sync()
+{
+        RETVAL=0
+        #
+        # If we run with overlayfs, try to sync the dirs
+        #
+	if [ "${ROROOT}" != "ro" ] || mount -o remount,rw / >> ${TMPLOG} 2>&1
+	then
+		echo "----------------------------" >> ${TMPLOG}
+		echo "$NAME sync started at `date`" >> ${TMPLOG}
+		for DIR in ${SYNCDIRS}
+		do
+			SOURCE="${DIR%%:*}"
+			DEST="${DIR##*:}"
+			log_action_msg "Syncing ${SOURCE} to ${DEST} ..."
+			echo "----"                                      >> ${TMPLOG}
+			echo "$NAME sync ${SOURCE} to ${DEST} with options ${SYNCFLAGS} ${SYNCEXCLUDES} at `date`" >> ${TMPLOG}
+			if [ -d "${SOURCE}" -a -d "${DEST}" ] 
+			then
+				rsync ${SYNCFLAGS} ${SYNCEXCLUDES} ${SOURCE}/ ${DEST}/ >> ${TMPLOG} 2>&1
+			elif [ -f "${SOURCE}" ]
+			then
+				cp -vp ${SOURCE} ${DEST} >> ${TMPLOG} 2>&1
+			else
+				log_action_msg "Skipping this step: ${SOURCE} or ${DEST} not available"
+			fi
+		done
+		cat ${TMPLOG} >> ${LOGFILE}
+		if [ -w /etc/fake-hwclock.data ]
+		then
+			log_action_msg "Saving fake-hwclock"
+			fake-hwclock save
+		fi
+		log_action_msg "Sync changes to disk"
+		sync; sync; sync
+		#
+		# return to read-only only if that is where we started
+		#
+		if [ "${ROROOT}" == "ro" ]
+		then
+			log_action_msg "Remount root as read-only"
+			mount -o remount,ro /
+		fi
+	else
+		log_action_msg "Remounting root as writeable failed!"
+		RETVAL=2
+	fi
+        return "$RETVAL"
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+        #
+        # If we run with overlayfs, try to sync the dirs
+        #
+        if [ -n "${DOSYNC}" ]
+        then
+		do_sync;
+		return $?
+	else
+		log_action_msg "Root is not read-only. No action"
+		return 0
+        fi
+}
+
+
+case "$1" in
+  start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        do_start
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+  stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        do_stop
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+  sync)
+        log_daemon_msg "Syncing $DESC" "$NAME"
+        do_sync
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+  status)
+        ;;
+  restart)
+        ;;
+  *)
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+        exit 3
+        ;;
+esac
+
+:

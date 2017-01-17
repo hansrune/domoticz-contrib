@@ -1,0 +1,31 @@
+#!/bin/sh
+DIR="$1"
+[ -z "${DIR}" ] && exit 1 
+#if ! grep -q overlay /proc/filesystems
+#then
+#    echo "Filesystem overlay is not available. You need a kernel update: apt-get update && apt-get upgrade"  >&2
+#    exit 2
+#fi
+if [ ! -d "${DIR}_org" ]
+then
+    echo "${DIR}_org does not exist" >&2
+    exit 1
+fi
+if [ ! -d "${DIR}_rw" ]
+then
+    echo "${DIR}_rw does not exist" >&2
+    exit 1
+fi
+#
+# ro must be the first mount option for root .....
+#
+ROOT_MOUNT=$( awk '$2=="/" { print substr($4,1,2) }' /proc/mounts )
+if [ "$ROOT_MOUNT" != "ro" ]; then
+    /bin/mount --bind ${DIR}_org ${DIR}
+else
+    /bin/mount -t tmpfs ramdisk ${DIR}_rw
+    /bin/mkdir ${DIR}_rw/upper
+    /bin/mkdir ${DIR}_rw/work
+    OPTS="-o lowerdir=${DIR}_org,upperdir=${DIR}_rw/upper,workdir=${DIR}_rw/work"
+    /bin/mount -t overlay ${OPTS} overlay ${DIR}
+fi

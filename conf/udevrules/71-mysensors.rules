@@ -1,0 +1,14 @@
+#
+# udevadm info --query=all --name ttyUSB0
+# udevadm test $(udevadm info --query path --name ttyUSB0 )
+#
+#  idVendor           0x1a86 QinHeng Electronics
+#  idProduct          0x7523 HL-340 USB-Serial adapter
+#
+#SUBSYSTEM=="tty", ENV{ID_MODEL}=="RFXtrx433", ENV{ID_VENDOR}=="RFXCOM", SYMLINK+="ttyUSB22", MODE="0666", SYMLINK+="mysensors"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyUSB31", MODE="0666", SYMLINK+="mysensors"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", SYMLINK+="ttyUSB31", MODE="0666", SYMLINK+="mysensors"
+#
+# Also used by RFXcom - do not uncomment unless there is none
+#
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ttyUSB31", MODE="0666", SYMLINK+="mysensors"

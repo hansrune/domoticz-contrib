@@ -1,0 +1,5 @@
+#
+# udevadm info --query=all --name ttyUSB0
+# udevadm test $(udevadm info --query path --name ttyUSB0 )
+#
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="RFXtrx433", ENV{ID_VENDOR}=="RFXCOM", SYMLINK+="ttyUSB21", MODE="0666", SYMLINK+="rfxcom"

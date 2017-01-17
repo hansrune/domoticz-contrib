@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+# $Id$
+#
+PROG=$( basename $0 ) 
+DIR=$( dirname $0 ) 
+PATH="${PATH}:${DIR}"; export PATH
+LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
+LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
+LOGOK=${LOGOK:-"logger -t ${PROG} -p local2.info"}
+DBGPRINT=${DBGPRINT:-"echo"}
+#
+IP=$( netstat -rn | awk '/^0\.0\.0\.0/ { print $2 }' )
+IP=${IP:="192.168.1.1"}
+GWIP=${GWIP:="$IP"}
+DOMOHOST="127.0.0.1"
+DOMOPORT="8080"
+IFIDX="$1"
+DOMOIDX="$2"
+SNMPPASSWD=${SNMPPASSWD:-"public"}
+SNMPVERSION=${SNMPVERSION:-"2c"}
+SNMPFAILMAX=${SNMPFAILMAX:-"5"}
+TMPSTAT="/tmp/${PROG}-${IFIDX}-${DOMOIDX}.state"
+LOGDATA="/tmp/${PROG}-${IFIDX}-${DOMOIDX}.log"
+FAILDATA="/tmp/${PROG}-${IFIDX}-${DOMOIDX}.fails"
+DATETIME=$( date '+%F %T' )
+
+if [[ -z $IFIDX ]] || [[ -z $DOMOIDX ]] 
+then
+    echo "Usage: $PROGNAME snmpinterfaceindex domodeviceindex" >&2
+    exit 1
+fi
+
+loss=$( ping -qc 1 "$GWIP" 2>&1 | sed -ne 's/.*, \([0-9][0-9]*\)% packet loss.*/\1/p' )
+${DBGPRINT} "Ping to $GWIP has $loss % loss at $DATETIME" >&2
+if [[ -z "$loss" ]] || [[ "$loss" = 100 ]]
+then
+    ${LOGERR} "No response from gateway $GWIP ($loss % loss)"
+    [[ -z "${GWSWITCH}" ]] &&  exit 2
+fi
+
+if [[ $DOMOHOST = "127.0.0.1" ]]
+then
+    # 
+    # if local, we can test if there is a port listener before we continue
+    #
+    if netstat -ant | grep -q "0.0.0.0:${DOMOPORT}"
+    then
+        :
+    else
+        ${LOGINF} "Domoticz on port ${SERVICEPORT} not active" >&2
+        exit 2
+    fi
+fi
+
+IOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "ifInOctets.${IFIDX}" )
+OOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "ifOutOctets.${IFIDX}" )
+FAILCOUNT="0"
+if [[ -z $IOCTETS ]] || [[ -z $OOCTETS ]] 
+then
+        ${LOGERR} "SNMP failure for $GWIP interface index $IFIDX" >&2
+	if [[ -r "${FAILDATA}" ]]
+	then
+		FAILCOUNT=$( cat "${FAILDATA}" 2>/dev/null )
+		(( FAILCOUNT = FAILCOUNT + 1 ))
+		if (( FAILCOUNT > SNMPFAILMAX ))
+		then
+			${DBGPRINT} "$PROG: $FAILCOUNT snmp failures. Assuming disconnected" >&2 
+			${LOGERR} "$FAILCOUNT snmp failures. Assuming disconnected" 
+			if [[ -n "${GWSWITCH}" ]]
+			then
+				echo "$PROG: Switching ${GWSWITCH} off"
+				${LOGERR}   "Switching ${GWSWITCH} off"
+				setdomoswitch "${GWSWITCH}" Off
+				sleep 3
+				setdomoswitch "${GWSWITCH}" Off
+				sleep 20
+				echo "$PROG: Switching ${GWSWITCH} on"
+				${LOGERR}   "Switching ${GWSWITCH} on"
+				setdomoswitch "${GWSWITCH}" On
+				sleep 3
+				setdomoswitch "${GWSWITCH}" On
+				sleep 3
+				setdomoswitch "${GWSWITCH}" On
+			fi
+			FAILCOUNT="0" # do not reset evety time in case error persists
+		else
+			${DBGPRINT} "$PROG: $FAILCOUNT SNMP fails. Limit is $SNMPFAILMAX"
+		fi
+	else
+		${DBGPRINT} "$PROG: Initializing $FAILDATA file"
+	fi
+	echo "${FAILCOUNT}" > "${FAILDATA}" 
+	exit 3
+else
+	echo "${FAILCOUNT}" > "${FAILDATA}" 
+fi
+
+if [[ -r ${TMPSTAT} ]]
+then
+	PREVIN=$(  awk '{ print $1 }' "${TMPSTAT}" )
+	PREVOUT=$( awk '{ print $2 }' "${TMPSTAT}" )
+fi
+echo "${IOCTETS} ${OOCTETS}" > "${TMPSTAT}"
+if [[ -z $PREVIN ]] || [[ -z $PREVOUT ]] 
+then
+	# First run ?
+	exit 1
+fi
+
+if [[ ${PREVIN} -gt ${IOCTETS} ]] || [[ ${PREVOUT} -gt ${OOCTETS} ]]
+then
+        ${LOGERR} "Counter wrapped: ${PREVIN} > ${IOCTETS} or ${PREVOUT} > ${OOCTETS}" >&2
+	exit 3
+fi
+
+echo "$PROG: Input now ${IOCTETS}, was ${PREVIN}. Output now ${OOCTETS} versus ${PREVOUT}"
+(( OCTETS = IOCTETS + OOCTETS ))
+(( PREV   = PREVIN + PREVOUT ))
+(( DELTA  = OCTETS - PREV ))
+echo "$PROG: Total ${OCTETS}, was ${PREV}. Delta ${DELTA}"
+
+echo "${DATETIME};${DELTA};${OCTETS};${IOCTETS};${OOCTETS}" >> ${LOGDATA}
+
+curl -s -i -H "Accept: application/json" "http://$DOMOHOST:$DOMOPORT/json.htm?type=command&param=udevice&idx=${DOMOIDX}&nvalue=0&svalue=${DELTA}"
+
+exit $?
+
+# :tabSize=4:indentSize=4:noTabs=true
+# vim:ts=4:sw=4
