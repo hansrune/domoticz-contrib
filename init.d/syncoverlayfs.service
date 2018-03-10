@@ -1,0 +1,13 @@
+[Unit]
+Description=Sync Overlay Filesystems 
+RequiresMountsFor=/var /home /opt/domoticz
+
+[Service]
+ExecStart=/etc/init.d/saveoverlays start
+ExecStop=/etc/init.d/saveoverlays stop
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStopSec=5min
+
+[Install]
+WantedBy=multi-user.target

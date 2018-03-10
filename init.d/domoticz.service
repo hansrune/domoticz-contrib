@@ -1,0 +1,35 @@
+[Unit]
+Description=Domoticz Home Automation
+After=network.target mosquitto.service
+ConditionPathExists=/var/lib/domoticz/domoticz.db
+
+[Service]
+#
+# Adapt as needed here ...
+#
+User=domo
+Group=domo
+Environment="DAEMON_ARGS=-loglevel 0 -syslog local1 -www 8080 -sslwww 0"
+# .... add to environnment if needed in here
+EnvironmentFile=-/etc/default/domoticz
+#
+# Unfortunately, these cannot contain environment variables
+# ... make sure they match the environment used in ExecStart
+#
+PIDFile=/var/run/domoticz/domoticz.pid
+WorkingDirectory=/opt/domoticz
+#  The rest can probably be left as is
+Type=forking
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p /var/run/domoticz /opt/domoticz/backups
+ExecStartPre=/bin/chown domo:domo /var/run/domoticz /opt/domoticz /opt/domoticz/backups
+ExecStart=/opt/domoticz/domoticz -daemon $DAEMON_ARGS -approot /opt/domoticz/ -wwwroot /opt/domoticz/www -dbase /var/lib/domoticz/domoticz.db -pidfile /var/run/domoticz/domoticz.pid
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=/bin/cp /var/lib/domoticz/domoticz.db /var/lib/domoticz/domoticz.db-save  
+KillMode=process
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+Alias=domoticz.sh.service

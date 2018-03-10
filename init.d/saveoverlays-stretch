@@ -1,0 +1,222 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          saveoverlays
+# Required-Start:    $local_fs $time
+# Required-Stop:     umountfs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Manage sync of overlay mounts
+# Description:       Manage sync of overlay mounts
+### END INIT INFO
+
+# Do NOT "set -e"
+#
+# Testing hints:
+#	sudo mount -o remount,ro / 
+#	sudo env INIT_VERBOSE=yes /etc/init.d/saveoverlays stop
+#	cat /var/log/saveoverlays.log  
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+DESC="overlay filesystem sync"
+NAME=saveoverlays
+
+if [ -f "/etc/default/$NAME" ]; then
+    . "/etc/default/$NAME"
+fi
+TMPLOG=/tmp/$NAME.log
+TESTDIR=/var/spool/cron/crontabs
+LOGFILE=/var_org/log/$NAME.log
+ROOTLOG="${HOME}/$NAME.log"
+SYNCSIG="/.overlaysync"
+
+PRIORITYFILES=${PRIORITYFILES:-"/var/log/fake-hwclock.data /var/lib/domoticz/domoticz.db"}
+DEFAULTFS=$(  awk '/^overlay/ { print $2 }' /proc/mounts )
+OVERLAYFS=${OVERLAYFS:-$DEFAULTFS}
+SYNCEXCLUDES=${SYNCEXCLUDES:-'--exclude *.leases'}
+SYNCFLAGS=${SYNCFLAGS:-"-avH --delete-after --inplace --no-whole-file"}
+KILLPROCS=${KILLPROCS:-"domoticz mosquitto"}
+
+# Check if we are running with read-only root
+# ROROOT=$( mount | egrep '^/dev/.*on / .*ro,' )
+ROROOT=$( awk '$2=="/" { print substr($4,1,2) }' /proc/mounts )
+DOSYNC=${FORCESYNC:-"$ROROOT"}
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+function do_start() {
+	if [ "${ROROOT}" = "ro" ]
+	then
+		log_action_msg "Read-only root active"
+	else
+		log_action_msg "Read-only root inactive"
+	fi
+	if date '+%Y' | grep -q 1970
+	then
+		log_action_msg "Clock is not set. Trying fake-hwclock"
+		fake-hwclock load
+	fi
+}
+
+#
+# Function that syncs the files
+#
+function do_sync() {
+    RETVAL=0
+    if [ -z "${OVERLAYFS}" ]
+    then
+		log_action_msg "No overlayfs mounted. Nothing to do"
+	elif [ ! -d "${TESTDIR}" ]
+	then
+		log_action_msg "$DESC disabled. Cannot find $TESTDIR. Check on start/stop order"
+		RETVAL=2
+	#elif [ ! -r "${LOGFILE}" ]
+    #then
+	#	log_action_msg "Cannot touch ${LOGFILE}. Check on setup"
+	#	RETVAL=2
+	elif [ "${ROROOT}" != "ro" ] || mount -o remount,rw / >> ${TMPLOG} 2>&1
+	then
+		#
+		# If we run with overlayfs, try to sync the dirs
+		#
+		echo "----------------------------"             >> ${TMPLOG}
+		echo "$NAME sync started at $( date )" >> ${TMPLOG}
+		if [ -n "${KILLPROCS}" ]
+		then
+			for P in ${KILLPROCS}
+			do
+				for S in 3 5 5 
+				do
+					PID=$( pgrep -x "$P" )
+					[ -z "${PID}" ] && break
+					echo "Found running $P - killing ${PID} ..."
+					kill "${PID}"
+					sleep ${S}
+				done
+			done
+			KILLPROCS=""
+		fi
+		if [ -w /etc/fake-hwclock.data ]
+		then
+			log_action_msg "Saving fake-hwclock"
+			fake-hwclock save
+		fi
+		for FILE in ${PRIORITYFILES}
+		do
+			for DIR in ${OVERLAYFS}
+			do
+				if [[ ${FILE} != ${FILE#$DIR} ]]
+				then
+					STAGE="${FILE/$DIR/${DIR}_stage}"
+					DEST="${FILE/$DIR/${DIR}_org}"
+					cp -p "${FILE}" "${STAGE}" && \
+					cp -p "${STAGE}" "${DEST}" && \
+                    SYNCEXCLUDES="--exclude ${FILE} ${SYNCEXCLUDES}" && \
+                    echo "$FILE priority synced at $( date )" >> ${TMPLOG} && \
+					log_action_msg "Priority sync done on ${FILE}..."
+				fi
+			done
+		done
+		for DIR in ${OVERLAYFS}
+		do
+			SOURCE="${DIR}"
+			STAGE="${DIR}_stage"
+			DEST="${DIR}_org"
+			log_action_msg "Syncing ${SOURCE}..."
+			echo "----"                                      >> ${TMPLOG}
+			echo "$NAME sync ${SOURCE} to ${DEST} with options ${SYNCFLAGS} ${SYNCEXCLUDES} at $( date )" >> ${TMPLOG}
+			if [ -d "${SOURCE}${SYNCSIG}" -a -d "${DEST}${SYNCSIG}" ] && mkdir -p "${STAGE}" >> ${TMPLOG} 2>&1
+			then
+				echo "---- Staging to $STAGE ------"                    >> ${TMPLOG} 
+				rsync ${SYNCFLAGS} ${SYNCEXCLUDES} ${SOURCE}/ ${STAGE}/ >> ${TMPLOG} 2>&1
+				echo "---- Copy to $DEST ------"                        >> ${TMPLOG} 
+				rsync ${SYNCFLAGS} ${SYNCEXCLUDES} ${STAGE}/  ${DEST}/  >> ${TMPLOG} 2>&1
+			else
+				log_action_msg "Skipping this step: ${SOURCE}${SYNCSIG} or ${DEST}${SYNCSIG} or ${STAGE} not available"
+			fi
+			echo "$NAME sync ${SOURCE} to ${DEST} ended at $( date )" >> ${TMPLOG}
+		done
+		cat ${TMPLOG} >> ${LOGFILE}
+		[ -f ${ROOTLOG}.2 ] && cp ${ROOTLOG}.2 ${ROOTLOG}.3
+		[ -f ${ROOTLOG}.1 ] && cp ${ROOTLOG}.1 ${ROOTLOG}.2
+		[ -f ${ROOTLOG}   ] && cp ${ROOTLOG}   ${ROOTLOG}.1
+		cp ${TMPLOG} ${ROOTLOG}
+		log_action_msg "Sync changes to disk"
+		sync; sync; sync
+		#
+		# return to read-only only if that is where we started
+		#
+		if [ "${ROROOT}" == "ro" ]
+		then
+			log_action_msg "Remount root as read-only"
+			mount -o remount,ro /
+		fi
+	else
+		log_action_msg "Remounting root as writeable failed!"
+		RETVAL=2
+	fi
+    return "$RETVAL"
+}
+
+#
+# Function that stops the daemon/service
+#
+function do_stop() {
+        #
+        # If we run with overlayfs, try to sync the dirs
+        #
+        if [ -n "${DOSYNC}" ]
+        then
+		do_sync;
+		return $?
+	else
+		log_action_msg "Root is not read-only. No action"
+		return 0
+        fi
+}
+
+
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        do_start
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        do_stop
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+    sync)
+        log_daemon_msg "Syncing $DESC" "$NAME"
+        do_sync
+        case "$?" in
+                0|1) log_end_msg 0 ;;
+                2)   log_end_msg 1 ;;
+        esac
+        ;;
+    status)
+        ;;
+    restart)
+        ;;
+    *)
+        echo "Usage: $SCRIPTNAME {start|stop|sync|status|restart}" >&2
+        exit 3
+        ;;
+esac
+
+# vim:ts=4:sw=4:shiftwidth=4:softtabstop=4:expandtab

@@ -1,0 +1,23 @@
+[Unit]
+Description=ISR pulse counter and uploader
+After=network.target
+
+[Service]
+#
+# Adapt as needed here ...
+#
+User=domo
+Group=domo
+Environment="LOGFILES=/var/log/isrcounter1 /var/log/isrcounter2"
+# .... add to environnment if needed in here
+EnvironmentFile=-/etc/default/isrmeter
+#
+PermissionsStartOnly=true
+ExecStartPre=/usr/bin/touch $LOGFILES
+ExecStartPre=/bin/chown domo:domo $LOGFILES
+ExecStart=/usr/local/sbin/isrcounter2 $LOGFILES
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
