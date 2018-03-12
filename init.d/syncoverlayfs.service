@@ -1,6 +1,7 @@
 [Unit]
 Description=Sync Overlay Filesystems 
-RequiresMountsFor=/var /home /opt/domoticz
+# Change the below line to contain all overlayfs mounts
+RequiresMountsFor=/var /home 
 
 [Service]
 ExecStart=/etc/init.d/saveoverlays start
