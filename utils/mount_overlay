@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 DIR="$1"
 [ -z "${DIR}" ] && exit 1 
 #if ! grep -q overlay /proc/filesystems
