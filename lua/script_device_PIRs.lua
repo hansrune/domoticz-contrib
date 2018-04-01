@@ -11,8 +11,10 @@
 --   m specifies when the PIR controls 
 --     a=all day
 --     n=nighttime
+--     N=night device is on
 --     d=daytime
---     1=custom timer 1 set to 22:00 to 07:30
+--     D=night device is off
+--     l=lux limit
 --   NN specifies how long the ligth will stay on for in minutes, 
 --   NN = 5 turns the switch or the group on for 5 minutes
 --
@@ -31,14 +33,16 @@ switchdevsuffix=uservariables["PIRSwitchDev"];
 luxdevsuffix=uservariables["PIRLuxDev"]; 
 nightdevice=uservariables["PIRNightSwitch"]; 
 luxlimit=uservariables["PIRLuxLimit"]; 
+retrans=uservariables["PIRRetrans"]; 
 --
 -- Default / fallback values
 --
-if not (debug)           then debug=false           end
+if (debug and debug > 0) then debug = true else debug=false end
 if not (switchdevsuffix) then switchdevsuffix="Lys" end
 if not (luxdevsuffix)    then luxdevsuffix="Lux"    end
 if not (nightdevice)     then nightdevice="Natt"    end
 if not (luxlimit)        then luxlimit=10           end
+if not (retrans)         then retrans=600           end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("name='" ..  i .. "' otherdevice=" .. v .. "<--") end
@@ -73,7 +77,7 @@ function timetest(opertime,stem)
 		if (not l) then
 			print("ERROR: Thers is no light sensor named" .. luxdev .. " or " .. luxdevsuffix)
         else
-            if (debug) then print("PIRDebug: Light sensor " .. luxdev .. " is now at " .. l .. " (threshold to trigger from stem " .. stem .. " device is " .. luxlimit .. ")") end
+            if (debug) then print("PIRDebug: Light sensor " .. luxdev .. " is now at " .. l .. " Threshold is " .. luxlimit) end
             if ( tonumber(l) < luxlimit ) then return true end
 		end
         return false
@@ -140,16 +144,26 @@ if (iir and ( s == "On" or s == "Group On" )) then
     d = group..onoffdev
     v = otherdevices[d]
     -- Avoid sending repetetive On commands
-    -- ...or some dimmers change level
-    if ( v == "Off" or v == "Group Off" ) then
-        onmode = device:sub(imode,imode)
-        if (timetest(onmode,basedev)) then
+    dt = timedifference(otherdevices_lastupdate[d])
+    onmode = device:sub(imode,imode)
+    if (timetest(onmode,basedev)) then
+        if ( v == "Off" or v == "Group Off" ) then
             commandArray[onoffdev] = 'On'
-            msg = "IR device "..device.." now in state "..s.." triggered "..onoffdev.." (mode="..onmode.." group="..group..")"
+            msg = "IR device "..device.." state "..s.." triggered "..onoffdev.." from "..v.." to On (mode="..onmode.." group="..group..")"
             if (logging) then print(msg) end
+        else
+            msg = "IR device "..device.." state "..s.." did not trigger "..onoffdev.." from "..v.." to On (mode="..onmode.." group="..group..")"
+            if (debug) then print(msg) end
         end
     else
-        if (debug) then print("PIRDebug: Device " .. d .. " is already " .. v) end
+        if ( v == "On" or v == "Group On" or dt > retrans ) then
+            commandArray[onoffdev] = 'Off'
+            msg = "IR device "..device.." state "..s.." triggered "..onoffdev.." from "..v.." to Off (mode="..onmode.." group="..group..")"
+            if (logging) then print(msg) end
+        else
+            msg = "IR device "..device.." state "..s.." did not trigger "..onoffdev.." from "..v.." to Off (mode="..onmode.." group="..group..")"
+            if (debug) then print(msg) end
+        end
     end
 end
 

@@ -11,8 +11,10 @@
 --   m specifies when the PIR controls 
 --     a=all day
 --     n=nighttime
+--     N=night device is on
 --     d=daytime
---     1=custom timer 1 set to 22:00 to 07:30
+--     D=night device is off
+--     l=lux limit
 --   NN specifies how long the ligth will stay on for in minutes, 
 --   NN = 5 turns the switch or the group on for 5 minutes
 --
@@ -33,7 +35,7 @@ switchdevsufffix=uservariables["PIRSwitchDev"];
 --
 -- Default / fallback values
 --
-if not (debug)            then debug=false            end
+if (debug and debug > 0 ) then debug = true else debug=false end
 if not (switchdevsufffix) then switchdevsufffix="Lys" end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
@@ -75,28 +77,26 @@ for device,value in pairs(otherdevices) do
 			end
 		end
         onmode = device:sub(imode,imode)
-        if onmode ~= "u" then
-            timeon = device:sub(imode+1, -2)
-            timesecon = (tonumber(timeon) * 60) - 1
-            onoffstate = otherdevices[group .. onoffdev]
-            if ( onoffstate == "Off" or onoffstate == "Group Off" ) then
-                if (debug) then print( "PIRDebug: Device " .. group .. onoffdev .. " is already " .. onoffstate ) end
-            else
-                devdiff = timedifference(otherdevices_lastupdate[device])
-                devstate = otherdevices[device]
-                timesecoff = timesecon + 199
-                if (debug) then 
-                    msg = "PIRDebug: Device "..device.." last changed to "..devstate.." at "..devdiff.." seconds ago." 
-                    msg = msg .. " Switches off between "..timesecon.." and "..timesecoff
-                    msg = msg .. " (group="..group.." onmode="..onmode..")"
-                    print(msg)
-                end
-                if (devdiff > timesecon and devdiff < timesecoff) then
-                    d = group..onoffdev
-                    msg = d.." off after " .. (timesecon+1) .. " seconds. IR device not changed in " .. devdiff .. " seconds"
-                    if (logging) then print(msg) end
-                    commandArray[d] = 'Off'
-                end
+        timeon = device:sub(imode+1, -2)
+        timesecon = (tonumber(timeon) * 60) - 1
+        onoffstate = otherdevices[group .. onoffdev]
+        if ( onoffstate == "Off" or onoffstate == "Group Off" ) then
+            if (debug) then print( "PIRTimeDebug: Device " .. group .. onoffdev .. " is already " .. onoffstate ) end
+        else
+            devdiff = timedifference(otherdevices_lastupdate[device])
+            devstate = otherdevices[device]
+            timesecoff = timesecon + 199
+            if (debug) then 
+                msg = "PIRTimeDebug: Device "..device.." last changed to "..devstate.." at "..devdiff.." seconds ago." 
+                msg = msg .. " Device off between "..timesecon.." and "..timesecoff
+                msg = msg .. " (group="..group.." onmode="..onmode..")"
+                print(msg)
+            end
+            if (devdiff > timesecon and devdiff < timesecoff) then
+                d = group..onoffdev
+                msg = d.." off after " .. (timesecon+1) .. " seconds. IR device not changed in " .. devdiff .. " seconds"
+                if (logging) then print(msg) end
+                commandArray[d] = 'Off'
             end
         end
     end
