@@ -26,6 +26,7 @@ GWIP=${GWIP:="192.168.0.1"}
 PINGIP=${DEFGW:="$GWIP"}
 SERVICEPORT="8080"
 SERVICENAME="domoticz.sh"
+SYSCTLNAME="domoticz.service"
 CHECKDIRS=${CHECKDIRS:="/opt/domoticz /var/log"}
 PINGDEADLINE=${PINGDEADLINE:-"7200"}
 #
@@ -143,7 +144,7 @@ then
 	fi
 fi
 
-if netstat -ant | grep -q "0.0.0.0:${SERVICEPORT}"
+if netstat -ant | egrep "LISTEN" | egrep -q "0.0.0.0:${SERVICEPORT}|:::${SERVICEPORT}"
 then
     ${LOGOK} "Service ${SERVICENAME} on port ${SERVICEPORT} has a listener" >&2
     exit $RC
@@ -156,10 +157,13 @@ then
 fi
 
 ${LOGERR} "Service ${SERVICENAME} on port ${SERVICEPORT} has no network listener"
-sudo service ${SERVICENAME} restart
+sudo systemctl stop ${SYSCTLNAME} || sudo service ${SERVICENAME} stop
+echo "please standby... (waiting 15 seconds)"
+sleep 15
+sudo systemctl start ${SYSCTLNAME} || sudo service ${SERVICENAME} start
 for n in 50 40 30 20 10 
 do
-    if netstat -ant | grep -q "0.0.0.0:${SERVICEPORT}"
+    if netstat -ant | egrep "LISTEN" | egrep -q "0.0.0.0:${SERVICEPORT}|:::${SERVICEPORT}"
     then
         ${LOGOK} "After service ${SERVICENAME} restart, port ${SERVICEPORT} has a listener" >&2
         exit 1
