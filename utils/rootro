@@ -10,8 +10,8 @@ do
 	OPT=$( awk "\$2==\"${FS}\" { print \$4 }" /proc/mounts )
 	if [[ $OPT =~ "${OP}," ]]
 	then
-		echo "PROG: ${FS} already ${OP}"
+		echo "$PROG: ${FS} already ${OP}"
 	else
-		sudo mount -o remount,${OP} "${FS}" && echo "PROG: ${FS} remounted ${OP}"
+		sudo mount -o remount,${OP} "${FS}" && echo "$PROG: ${FS} remounted ${OP}"
 	fi
 done
