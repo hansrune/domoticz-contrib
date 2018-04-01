@@ -44,7 +44,7 @@ then
     # 
     # if local, we can test if there is a port listener before we continue
     #
-    if netstat -ant | grep -q "0.0.0.0:${DOMOPORT}"
+    if netstat -ant | egrep "LISTEN" | egrep -q "0.0.0.0:${SERVICEPORT}|:::${SERVICEPORT}"
     then
         :
     else
