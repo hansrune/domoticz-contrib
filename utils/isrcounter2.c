@@ -51,13 +51,16 @@ void myInterrupt (void) {
     ++isrCounter ;
 }
 
-int  updateFile ( char *filename, char *buf )
+int  updateFile ( char *filename, unsigned long num )
 {
     int fd;
+    char buf[32];
+
     if ((fd = open (filename, O_TRUNC | O_WRONLY)) < 0) {
         fprintf (stderr, "Unable to update file %s: %s\n", filename, strerror (errno)) ;
         return 1 ;
     }
+    sprintf(buf, "%lu\n", num);
     write (fd, buf, strlen(buf)) ;
     return close (fd) ;
 }
@@ -86,7 +89,7 @@ int main (int argc, char *argv[]) {
     unsigned long lastRateCount = 0 ;
     unsigned long intervalTime = 60 ;
     unsigned long rate;
-    char buf[32];
+    unsigned long looplimit = 0;
 
     time_t lastTime, currTime;
 
@@ -114,30 +117,32 @@ int main (int argc, char *argv[]) {
         return 1 ;
     }
 
-    if (updateFile(argv[1], "0") != 0 ) {
+    if (updateFile(argv[1], myCounter) != 0 ) {
         return 1 ;
     }
 
-    if (argc >= 3 && updateFile(argv[2], "0") != 0 ) {
+    if (argc >= 3 && updateFile(argv[2], 0) != 0 ) {
         return 1; 
     }
+
+    printf("Initial count is %lu",myCounter);
 
     if (argc == 4) intervalTime = atol(argv[3]);
 
     for (;;) {
         printf ("\nWaiting... ") ; fflush (stdout) ;
 
-        while (myCounter == isrCounter)
-            delay (100) ;
+        looplimit = 0;
+        while ( myCounter == isrCounter && ++looplimit < 10 * 60 )
+            delay (100) ; 
 
         if ( lastCounter != 0 ) {
             printf ("Count %lu (diff %lu). ", isrCounter, myCounter - lastCounter) ;
         }
         lastCounter = myCounter ;
         myCounter   = isrCounter ;
-        if ( lastCounter != 0 ) {
-            sprintf(buf, "%lu\n", myCounter);
-            updateFile(argv[1], buf);
+        if ( lastCounter != 0 && lastCounter != myCounter ) {
+            updateFile(argv[1], myCounter);
         }
         digitalWrite (OUT_PIN, isrCounter & 0x1 ) ;
 
@@ -147,8 +152,7 @@ int main (int argc, char *argv[]) {
         currTime = time(NULL);
         if ( currTime - lastTime >= intervalTime  ) {
             rate = (unsigned long) ((myCounter - lastRateCount) / (( currTime - lastTime) / (float) 3600));
-            sprintf(buf, "%lu\n", rate);
-            updateFile(argv[2], buf);
+            updateFile(argv[2], rate);
             printf ("Rate is %lu in %lu seconds",  rate,  currTime - lastTime );
             lastRateCount = myCounter;
             lastTime = currTime;
