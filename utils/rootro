@@ -5,13 +5,16 @@ PROG=$( basename $0 )
 OP="ro"
 [[ ${PROG%rw} != ${PROG} ]] && OP="rw"
 
-for FS in / /boot
+for FS in / /boot /boot/firmware
 do
-	OPT=$( awk "\$2==\"${FS}\" { print \$4 }" /proc/mounts )
-	if [[ $OPT =~ "${OP}," ]]
+	if mountpoint -q "${FS}"
 	then
-		echo "$PROG: ${FS} already ${OP}"
-	else
-		sudo mount -o remount,${OP} "${FS}" && echo "$PROG: ${FS} remounted ${OP}"
+		OPT=$( awk "\$2==\"${FS}\" { print \$4 }" /proc/mounts )
+		if [[ $OPT =~ "${OP}," ]]
+		then
+			echo "$PROG: ${FS} already ${OP}"
+		else
+			sudo mount -o remount,${OP} "${FS}" && echo "$PROG: ${FS} remounted ${OP}"
+		fi
 	fi
 done
