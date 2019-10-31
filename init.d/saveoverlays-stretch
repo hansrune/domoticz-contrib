@@ -33,7 +33,7 @@ PRIORITYFILES=${PRIORITYFILES:-"/var/log/fake-hwclock.data /var/lib/domoticz/dom
 DEFAULTFS=$(  awk '/^overlay/ { print $2 }' /proc/mounts )
 OVERLAYFS=${OVERLAYFS:-$DEFAULTFS}
 SYNCEXCLUDES=${SYNCEXCLUDES:-'--exclude *.leases'}
-SYNCFLAGS=${SYNCFLAGS:-"-avH --delete-after --inplace --no-whole-file"}
+SYNCFLAGS=${SYNCFLAGS:-"-avH --remove-source-files --inplace --no-whole-file"}
 KILLPROCS=${KILLPROCS:-"domoticz mosquitto"}
 
 # Check if we are running with read-only root
