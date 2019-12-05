@@ -1,0 +1,12 @@
+/var/log/user {
+        size=100M
+        postrotate
+                /bin/kill -HUP                          2> /dev/null || true
+        endscript
+}
+/var/log/local[1-9] {
+        size=10M
+        postrotate
+                /bin/kill -HUP                          2> /dev/null || true
+        endscript
+}
