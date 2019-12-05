@@ -1,8 +1,13 @@
 --
--- $Id: script_time_repeatonoff.lua,v 1.4 2016/03/13 19:29:50 pi Exp $
+-- $Id: script_time_repeatonoff.lua,v 1.3 2015/03/16 19:20:31 pi Exp $
 --
 logging = true
 debug = false
+
+-- For timing
+timing = false
+if (timing) then nClock = os.clock() end
+
 --
 -- We don't check if a switch is on or off before sending an on or off command
 -- rather than repeat this after some time. This is to be able to use switches
@@ -17,8 +22,8 @@ repeatdelta=60
 -- Devices must match a substring in the included list
 -- ... but if it is on the exclude list, it is still not used
 --
-included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Avfukter", "Garageport", "Fontene", "AudioVideo", "Pi3", "Hovedbryter", "Ventil" };
-excluded = { "IR", "Fstue Lys", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "Veggbryter", "Jule", "Unknown" };
+included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Avfukter", "Garageport", "Fontene", "AudioVideo" };
+excluded = { "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
 -- No changes should be needed below here
@@ -72,4 +77,8 @@ do
 		end
 	end
 end
+if (timing) then print("Script elapsed time: " .. os.clock()-nClock) end
 return commandArray
+--
+-- vim:ts=4:sw=4
+--

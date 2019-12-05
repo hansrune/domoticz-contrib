@@ -5,6 +5,11 @@
 --
 logging = true
 debug = false
+
+-- For timing
+timing = false
+if (timing) then nClock = os.clock() end
+
 --
 -- Translate and change via user variables or below default values as needed. 
 --
@@ -14,6 +19,7 @@ debug = false
 --	a thermostat device ("Prefix Thermostat"), a real or virtual device
 --	a heater switch ("Prefix Oven"), i.e. a real On/Off switch
 --
+debug=uservariables["ThermostatDebug"]; 
 temperaturesuffix=uservariables["ThermostatTempSuffix"]; 
 thermostatsuffix=uservariables["ThermostatThermoSuffix"]; 
 heaterswitchsuffix=uservariables["ThermostatHeaterSuffix"];
@@ -33,6 +39,7 @@ minchangeinterval=uservariables["ThermostatMinChangeInterval"];
 --
 -- Default / fallback values
 --
+if not (debug)               then debug=false                    end
 if not (temperaturesuffix)   then temperaturesuffix="Temp"       end
 if not (thermostatsuffix)    then thermostatsuffix="Termostat"   end
 if not (heaterswitchsuffix)  then heaterswitchsuffix="Ovn"       end
@@ -62,7 +69,7 @@ end
 commandArray = {}
 for device, value in pairs(otherdevices_svalues) 
 do
-	if (debug) then print("Device=" ..  device .. " value=" .. value) end
+	-- if (debug) then print("Device=" ..  device .. " value=" .. value) end
 	idx=string.find(device,thermostatsuffix,1,true) 
 	if (idx)
 	then
@@ -144,6 +151,7 @@ do
         end
 	end
 end
+if (timing) then print("Script elapsed time: " .. os.clock()-nClock) end
 return commandArray
 --
 -- vim:ts=4:sw=4
