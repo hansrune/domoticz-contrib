@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 DIR="$1"
 [ -z "${DIR}" ] && exit 1 
 #if ! grep -q overlay /proc/filesystems
@@ -19,7 +19,9 @@ fi
 #
 # ro must be the first mount option for root .....
 #
+#ROOT_MOUNT=$( grep -v "^#" /etc/fstab | awk '$2=="/" { print substr($4,1,2) }' )
 ROOT_MOUNT=$( awk '$2=="/" { print substr($4,1,2) }' /proc/mounts )
+
 if [ "$ROOT_MOUNT" != "ro" ]; then
     /bin/mount --bind ${DIR}_org ${DIR}
 else
