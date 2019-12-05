@@ -1,5 +1,0 @@
-#
-# udevadm info --query=all --name ttyACM0
-# udevadm test $(udevadm info --query path --name ttyACM0 )
-#
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="Nokia_E51", ENV{ID_VENDOR}=="Nokia", SYMLINK+="mobile", SYMLINK+="modem", MODE="0666"

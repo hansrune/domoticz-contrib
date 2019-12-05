@@ -1,0 +1,1 @@
+#KERNEL=="hidraw*", ENV{ID_MODEL}=="HP_T1000_G3*", ENV{ID_VENDOR}=="Hewlett-Packard", SYMLINK+="ups", MODE="0666"

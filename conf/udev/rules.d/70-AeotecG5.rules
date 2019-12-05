@@ -1,0 +1,4 @@
+#
+# Aeotec Gen 5 Z-Wave
+#
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0658", ATTRS{idProduct}=="0200", MODE="0666", SYMLINK+="ttyUSB24", SYMLINK+="ZStick5G"

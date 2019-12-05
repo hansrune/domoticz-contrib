@@ -1,0 +1,6 @@
+#
+# udevadm info --query=all --name ttyUSB0
+# udevadm test $(udevadm info --query path --name ttyUSB0 )
+#
+SUBSYSTEM=="tty", ENV{ID_MODEL}=="TI_CC2531_USB_CDC", MODE="0666", SYMLINK+="zigbee"
+SUBSYSTEM=="tty", ENV{ID_USB_DRIVER}=="cp210x", MODE="0666", SYMLINK+="zigbee"

@@ -1,5 +1,0 @@
-#
-# udevadm info --query=all --name ttyUSB1
-# udevadm test $(udevadm info --query path --name ttyUSB1 )
-#
-SUBSYSTEM=="tty", ENV{ID_MODEL}=="HUAWEI_Mobile", ENV{ID_VENDOR}=="HUAWEI_Technology", SYMLINK+="mobile", SYMLINK+="modem", MODE="0666"
