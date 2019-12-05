@@ -9,7 +9,8 @@ ConditionPathExists=/var/lib/domoticz/domoticz.db
 #
 User=domo
 Group=domo
-Environment="DAEMON_ARGS=-loglevel 0 -syslog local1 -www 8080 -sslwww 0"
+Environment="DOMO_ARGS=-f /opt/domoticz/etc/domoticz.conf"
+#Environment="DOMO_ARGS=-loglevel 7 -syslog local1 -www 8080 -sslwww 0"
 # .... add to environnment if needed in here
 EnvironmentFile=-/etc/default/domoticz
 #
@@ -19,11 +20,14 @@ EnvironmentFile=-/etc/default/domoticz
 PIDFile=/var/run/domoticz/domoticz.pid
 WorkingDirectory=/opt/domoticz
 #  The rest can probably be left as is
-Type=forking
+# Type=forking --> add --daemon if used
 PermissionsStartOnly=true
 ExecStartPre=/bin/mkdir -p /var/run/domoticz /opt/domoticz/backups
 ExecStartPre=/bin/chown domo:domo /var/run/domoticz /opt/domoticz /opt/domoticz/backups
-ExecStart=/opt/domoticz/domoticz -daemon $DAEMON_ARGS -approot /opt/domoticz/ -wwwroot /opt/domoticz/www -dbase /var/lib/domoticz/domoticz.db -pidfile /var/run/domoticz/domoticz.pid
+#
+# DataBase file must also be updated in .conf file
+#
+ExecStart=/opt/domoticz/domoticz $DOMO_ARGS -approot /opt/domoticz/ -wwwroot /opt/domoticz/www -dbase /var/lib/domoticz/domoticz.db -pidfile /var/run/domoticz/domoticz.pid
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStopPost=/bin/cp /var/lib/domoticz/domoticz.db /var/lib/domoticz/domoticz.db-save  
 KillMode=process
