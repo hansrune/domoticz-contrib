@@ -144,11 +144,22 @@ then
 	fi
 fi
 
+ERR=""
 if netstat -ant | egrep "LISTEN" | egrep -q "0.0.0.0:${SERVICEPORT}|:::${SERVICEPORT}"
 then
     ${LOGOK} "Service ${SERVICENAME} on port ${SERVICEPORT} has a listener" >&2
-    exit $RC
+else
+	ERR="Service ${SERVICENAME} on port ${SERVICEPORT} has no network listener"
 fi
+
+if curl -s "http://127.0.0.1:8080/json.htm?type=command&param=getauth" | grep -w OK > /dev/null
+then
+    ${LOGOK} "Service ${SERVICENAME} on port ${SERVICEPORT} responds to http requests" >&2
+else
+	ERR="Service ${SERVICENAME} on port ${SERVICEPORT} does not respond to http requests"
+fi
+
+[[ -z "${ERR}" ]] && exit ${RC}
 
 if [[ "${WHOCOUNT}" != 0 ]]
 then
@@ -156,7 +167,7 @@ then
     exit $RC
 fi
 
-${LOGERR} "Service ${SERVICENAME} on port ${SERVICEPORT} has no network listener"
+${LOGERR} "${ERR}"
 sudo systemctl stop ${SYSCTLNAME} || sudo service ${SERVICENAME} stop
 echo "please standby... (waiting 15 seconds)"
 sleep 15
