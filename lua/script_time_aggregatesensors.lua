@@ -148,7 +148,7 @@ do
 					if (subdtime <= devicetimeout) then
 						if ((string.sub(subdev, -1) == "+" ) and (subdtime <= devicetimeout)) then
 							-- Subdevice ends in +, so include as long as it has not timed out
-							collectdata(string.sub(subdev, 1, -1), subval)
+							collectdata(string.sub(subdev, 1, -2), subval)
 							if (dbg) then print("Subdevice " .. string.sub(subdev, 1, -2) .. "+ value " .. subval .. " inluded as name ends in +") end
 						elseif ( maindtime > devicetimeout ) and (subdtime <= devicetimeout) then
 							-- If main device is not updated, collect all subdevice values that are not timed out
