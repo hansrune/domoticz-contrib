@@ -1,5 +1,5 @@
-/var/log/user
-/var/log/local*.log
+/var/log/user.log
+/var/log/local[0-9].log
 {
 	rotate 4
 	daily
