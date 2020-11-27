@@ -39,9 +39,9 @@ function changedsince(device)
 	minutes = string.sub(ts, 15, 16)
 	seconds = string.sub(ts, 18, 19)
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difftime=math.floor(os.difftime(t1,t2))
+	difftime=(os.difftime(t1,t2))
 	-- if (debug) then print("Device " .. device .. " not changed in " .. difftime .. " seconds") end
-	return difftime
+	return math.floor(difftime)
 end
 
 commandArray = {}
@@ -76,14 +76,16 @@ do
 						commandArray['SendNotification']="Sensor " .. device .. " inactive for " .. deltatime .. " seconds"
 					end
 				end
-			elseif ( sensorsalerted ) then
-				pos = string.find(sensorsalerted,devstored,1,true)
-				if ( pos ) then
-					len = string.len(devstored) 
-					sensorsalerted = string.sub(sensorsalerted, 1, pos - 1) .. string.sub(sensorsalerted, pos + len)
-					if (logging) then print("sensorsalterted removal: " .. device .. " removed from " .. sensorsalerted) end
-					commandArray['Variable:SensorsAlerted']=sensorsalerted
-					commandArray['SendNotification']="Sensor " .. device .. " active again"
+			else
+				if ( sensorsalerted ) then
+					pos = string.find(sensorsalerted,devstored,1,true)
+					if ( pos ) then
+						len = string.len(devstored) 
+						sensorsalerted = string.sub(sensorsalerted, 1, pos - 1) .. string.sub(sensorsalerted, pos + len)
+						if (logging) then print("sensorsalterted removal: " .. device .. " removed from " .. sensorsalerted) end
+						commandArray['Variable:SensorsAlerted']=sensorsalerted
+						commandArray['SendNotification']="Sensor " .. device .. " active again"
+					end
 				end
 			end
 		else
