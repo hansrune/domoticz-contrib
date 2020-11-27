@@ -45,8 +45,7 @@ function changedsince(device)
 	seconds = string.sub(ts, 18, 19)
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
 	difftime=math.floor(os.difftime(t1,t2))
-	-- if (debug) then print("Device " .. device .. " not changed in " .. difftime .. " seconds") end
-	return difftime
+	return math.floor(difftime)
 end
 
 commandArray = {}
