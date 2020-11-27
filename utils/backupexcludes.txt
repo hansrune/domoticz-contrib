@@ -1,0 +1,11 @@
+backups/*
+contrib/*
+contrib/*
+dzevents/*
+etc/*
+frontpage/*
+plugins/*
+scripts/*
+www/styles/*
+www/styles/*/custom.css
+zigbee/*
