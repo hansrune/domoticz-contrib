@@ -18,7 +18,7 @@ DBGPRINT=${DBGPRINT:-":"}
 SSHOPT="-o ConnectTimeout=30 -o StrictHostKeyChecking=no -o PasswordAuthentication=no -q -n"
 PATH="${PATH}:${DIR}"; export PATH
 #
-GWIP=$( netstat -rn | awk '/^0\.0\.0\.0/ { print $2 }' )
+GWIP=$( /sbin/ip route | awk '{ if ( $1 == "default" ) print $3 }' )
 GWIP=${GWIP:="192.168.0.1"}
 #
 # You may want to adjust these

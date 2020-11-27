@@ -10,7 +10,7 @@ LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
 LOGOK=${LOGOK:-"logger -t ${PROG} -p local2.info"}
 DBGPRINT=${DBGPRINT:-"echo"}
 #
-IP=$( netstat -rn | awk '/^0\.0\.0\.0/ { print $2 }' )
+IP=$( ip route | awk '{ if ( $1 == "default" )  print $3 }' )
 IP=${IP:="192.168.1.1"}
 GWIP=${GWIP:="$IP"}
 DOMOHOST="127.0.0.1"
