@@ -1,0 +1,54 @@
+#!/bin/sh
+PROG=$( basename $0 )
+DATETIME=$( date '+%F %T' )
+MAILTO=${MAILTO:-"domo@hansrune.net"}
+LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
+LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
+
+TOPDIR="/var/lib/letsencrypt"
+DISTDIR=${DISTDIR:-"$TOPDIR/private"}
+DISTHOSTS=${DISTHOSTS:-"pi1"}
+
+for util in acme-nginx
+do
+	type $util >/dev/null 2>&1 && continue
+	echo "$PROG: Cannot find $util. Cannot continue" >&2
+	exit 2
+done
+
+echo "$PROG: Started at $DATETIME" > /tmp/${PROG}-$$.log
+
+sudo touch  ${TOPDIR}/sites-enabled/customvhost
+sudo systemctl start nginx
+sudo systemctl status nginx
+
+
+
+if sudo acme-nginx --no-reload-nginx -k ${DISTDIR}/account.key --domain-private-key   ${DISTDIR}/domain.key --virtual-host  ${TOPDIR}/sites-enabled/customvhost -o  ${DISTDIR}/signed_certificate.pem -d access1.hansrune.net >> /tmp/${PROG}-$$.log 2>&1
+then
+	echo "$PROG: acme-nginx certificate check or update succeeded"
+	${LOGINF} "acme-nginx certificate check or update succeeded"
+	sudo tar -C ${DISTDIR} -cf /tmp/$PROG-$$.tar .
+	for H in ${DISTHOSTS}
+	do
+		echo "$PROG: Distributing to ${H} ..." 
+		scp /tmp/$PROG-$$.tar ${H}:/tmp/$PROG.tar && \
+		ssh ${H} sudo tar -C ${DISTDIR} -xpf /tmp/$PROG.tar && \
+		ssh ${H} sudo systemctl restart nginx \
+		echo "$PROG: Distributed OK to ${H}" >> /tmp/${PROG}-$$.log 2>&1 && \
+		${LOGINF} "Distributed OK to ${H}"
+	done
+	RC=0
+else
+	echo "$PROG: acme-nginx certificate check or update failed!"
+	${LOGERR} "acme-nginx certificate check or update failed!"
+	RC=3
+fi
+if [ -n "${MAILTO}" ]
+then
+	mail -s "$PROG logfile" ${MAILTO} < /tmp/${PROG}-$$.log
+fi
+sudo systemctl stop nginx
+ls -l /var/lib/letsencrypt/sites-enabled/customvhost
+ls -l /tmp/$PROG-$$.tar
+exit $RC
