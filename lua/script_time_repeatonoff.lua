@@ -2,7 +2,7 @@
 -- $Id: script_time_repeatonoff.lua,v 1.3 2015/03/16 19:20:31 pi Exp $
 --
 logging = true
-debug = false
+debug=uservariables["RepeatDebug"]; 
 
 -- For timing
 timing = false
@@ -60,7 +60,7 @@ do
 			pos = string.find(device,name,1,true)
 			if ( pos ) then break end
 		end
-	        if ( pos == nil ) then 
+	    if ( pos == nil ) then 
 			dbg("Device " ..  device .. " not included in repeat on/off devices") 
 		else
 			pos = nil
