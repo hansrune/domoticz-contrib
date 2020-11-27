@@ -26,21 +26,26 @@
 --
 logging = true
 --
-switchdevsufffix = "Lys"
---
 -- Congfigure to your needs - either via user variables, or the fallback values below
 --
 debug=uservariables["PIRDebug"]; 
-switchdevsufffix=uservariables["PIRSwitchDev"]; 
+switchdevsuffix=uservariables["PIRSwitchDevSuffix"]; 
+switchdevprefix=uservariables["PIRSwitchDevPrefix"]; 
 --
 -- Default / fallback values
 --
 if (debug and debug > 0 ) then debug = true else debug=false end
-if not (switchdevsufffix) then switchdevsufffix="Lys" end
+if not (switchdevsuffix) then switchdevsuffix="Lys" end
+if not (switchdevprefix) then switchdevprefix="Dimmer" end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("Name=" ..  i .. " otherdevice=" .. v .. "<--") end
 
+function dbg(s)
+    if (debug) then 
+        print("PIRDebug: " .. s)
+    end
+end
 
 function timedifference(s)
 	year = string.sub(s, 1, 4)
@@ -52,52 +57,54 @@ function timedifference(s)
 	t1 = os.time()
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
 	difference = os.difftime (t1, t2)
-	return difference
+	return math.floor(difference)
 end
  
  
 commandArray = {}
  
-for device,value in pairs(otherdevices) do
-    iir=string.find(device,"IR(",1,true) 
+for irdev,irstate in pairs(otherdevices) do
+    iir=string.find(irdev,"IR(",1,true) 
     if (iir) then
-		basedev=string.sub(device,1,iir-1)
-		if device:sub(iir+3,iir+3) == "g" then
+		basedev=string.sub(irdev,1,iir-2)
+		if irdev:sub(iir+3,iir+3) == "g" then
 			group="Group:"
 			imode=iir+4
-			onoffdev=basedev
+			switchdev=basedev
 		else
 			group=""
 			imode=iir+3
-			onoffdev=basedev .. switchdevsufffix
-			val=otherdevices[onoffdev]
-			if (not val) then
-				print("ERROR: "..device.." has no corresponding "..onoffdev.." device")
-				return commandArray
-			end
+            switchdev=basedev .. " " .. switchdevsuffix
+            switchval=otherdevices[switchdev]
+            if (not switchval) then
+                switchdev=switchdevprefix .. " " .. basedev 
+                switchval=otherdevices[switchdev]
+                if (not switchval) then
+                    print("ERROR: IR sensor "..irdev.." has no corresponding light switch named '"..basedev.." "..switchdevsuffix.."' nor '"..switchdevprefix.." "..basedev.."' device val=", switchval)
+                    return commandArray
+                end
+            end
 		end
-        onmode = device:sub(imode,imode)
-        timeon = device:sub(imode+1, -2)
-        timesecon = (tonumber(timeon) * 60) - 1
-        onoffstate = otherdevices[group .. onoffdev]
-        if ( onoffstate == "Off" or onoffstate == "Group Off" ) then
-            if (debug) then print( "PIRTimeDebug: Device " .. group .. onoffdev .. " is already " .. onoffstate ) end
+        switchdev = group .. switchdev
+        switchval = otherdevices[switchdev]
+        uservar   = 'PIRoff' .. basedev
+        timenow   = os.time()
+        timeoff   = uservariables[uservar]
+        if (not timeoff) then
+            dbg("PIRTimeDebug: Device '" .. switchdev .. "' is not active by '" .. irdev .. "'")
+            return commandArray
+        end
+        
+        timeoff = tonumber(timeoff)
+        if ( timeoff ~= 0 and timenow >= timeoff) then
+            table.insert(commandArray,{ [switchdev] = 'Off' })
+            table.insert(commandArray,{ ['Variable:'..uservar] = "0" })
+            if (logging) then print("Switching off '" .. switchdev .. "' / resetting '" .. uservar .. "'") end
         else
-            devdiff = timedifference(otherdevices_lastupdate[device])
-            devstate = otherdevices[device]
-            timesecoff = timesecon + 199
-            if (debug) then 
-                msg = "PIRTimeDebug: Device "..device.." last changed to "..devstate.." at "..devdiff.." seconds ago." 
-                msg = msg .. " Device off between "..timesecon.." and "..timesecoff
-                msg = msg .. " (group="..group.." onmode="..onmode..")"
-                print(msg)
-            end
-            if (devdiff > timesecon and devdiff < timesecoff) then
-                d = group..onoffdev
-                msg = d.." off after " .. (timesecon+1) .. " seconds. IR device not changed in " .. devdiff .. " seconds"
-                if (logging) then print(msg) end
-                commandArray[d] = 'Off'
-            end
+            timetill = timeoff-timenow
+            if ( timetill < 0 ) then timetill = "n/a" end
+            if ( timeoff == 0 ) then timeoff = "inactive" end
+            dbg("Device " .. switchdev .. " is " .. switchval .. " - off after " .. timetill .. " seconds (timeoff=" .. timeoff .. " timenow=" .. timenow .. ")")
         end
     end
 end
