@@ -53,7 +53,7 @@ debug = false
 --
 -- http://192.168.0.19/control?cmd=heatpumpir,mitsubishi_fd,1,1,0,23,0,0
 espdevices=uservariables["IRHeatPumpDevices"]; 
-if not (espdevices) then espdevices="192.168.0.119 192.168.0.117" end
+if not (espdevices) then espdevices="192.168.101.119 192.168.101.117" end
 
 heatpumpmodel="mitsubishi_kj"
 
