@@ -22,8 +22,8 @@ repeatdelta=60
 -- Devices must match a substring in the included list
 -- ... but if it is on the exclude list, it is still not used
 --
-included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Avfukter", "Garageport", "Fontene", "AudioVideo" };
-excluded = { "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
+included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo", "forsyning" };
+excluded = { "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
 -- No changes should be needed below here
@@ -38,7 +38,7 @@ function changedsince(device)
 	minutes = string.sub(ts, 15, 16)
 	seconds = string.sub(ts, 18, 19)
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difftime=(os.difftime(t1,t2))
+	difftime=math.floor(os.difftime(t1,t2))
 	-- if (debug) then print("Device " .. device .. " not changed in " .. difftime .. " seconds") end
 	return difftime
 end
@@ -68,9 +68,10 @@ do
 				if (debug) then print("Device " ..  device .. " excluded on matching " .. matchname) end
 			else
 				if (debug) then print("Device=" ..  device .. " value=" .. value) end
-				if ( changedsince(device) > repeatdelay ) then
+				since = changedsince(device)
+				if ( since > repeatdelay ) then
 					commandArray[device] = value
-					if (logging) then print(device .. " repeat set to value " .. value  ) end
+					if (logging) then print(device .. " repeat set to value " .. value .. " (last changed " .. since .. " seconds ago)"  ) end
 					repeatdelay = repeatdelay + repeatdelta
 				end
 			end
