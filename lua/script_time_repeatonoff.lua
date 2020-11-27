@@ -23,11 +23,17 @@ repeatdelta=60
 -- ... but if it is on the exclude list, it is still not used
 --
 included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo", "forsyning" };
-excluded = { "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
+excluded = { "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
 -- No changes should be needed below here
 --
+function dbg(s)
+    if (debug) then 
+        print("PIRDebug: " .. s)
+    end
+end
+
 function changedsince(device)
 	t1 = os.time()
 	ts = otherdevices_lastupdate[device]
@@ -55,7 +61,7 @@ do
 			if ( pos ) then break end
 		end
 	        if ( pos == nil ) then 
-			if (debug) then print("Device " ..  device .. " not included in repeat on/off devices") end
+			dbg("Device " ..  device .. " not included in repeat on/off devices") 
 		else
 			pos = nil
 			for idx,name in ipairs(excluded) 
@@ -65,12 +71,12 @@ do
 				if ( pos ) then break end
 			end
 			if ( pos ) then 
-				if (debug) then print("Device " ..  device .. " excluded on matching " .. matchname) end
+				dbg("Device " ..  device .. " excluded on matching " .. matchname) 
 			else
-				if (debug) then print("Device=" ..  device .. " value=" .. value) end
+				dbg("Device=" ..  device .. " value=" .. value) 
 				since = changedsince(device)
 				if ( since > repeatdelay ) then
-					commandArray[device] = value
+					table.insert(commandArray,{ [device] = value })
 					if (logging) then print(device .. " repeat set to value " .. value .. " (last changed " .. since .. " seconds ago)"  ) end
 					repeatdelay = repeatdelay + repeatdelta
 				end
