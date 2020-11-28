@@ -10,14 +10,15 @@ PORT=${PORT:-"8080"}
 HOST=$( hostname -s ) 
 TIMESTR=$(  date '+%F %T' |tr  ': -' '.\-.' )
 BASENAME="domoticz-${HOST}-${TIMESTR}"
+BODY="Domoticz backup from $HOST at ${TIMESTR}"
 #sudo service domoticz.sh stop 
 cd /tmp
 if wget -q -O "/tmp/${BASENAME}.db" "http://127.0.0.1:$PORT/backupdatabase.php" 
 then
 	gzip -9 "/tmp/${BASENAME}.db"
-	mpack -s "Domotics backup from $HOST at ${TIMESTR}" "/tmp/${BASENAME}.db.gz" ${MAILTO}
+	mail -s "Domoticz backup from $HOST at ${TIMESTR}" -A "/tmp/${BASENAME}.db.gz" --content-type=application/zip ${MAILTO} <<< "${BODY}"
 else
-	mail -s "Domotics backup from $HOST failed at ${TIMESTR}" ${MAILTO} < /dev/null
+	mail -s "Domoticz backup from $HOST failed at ${TIMESTR}" ${MAILTO} <<< "${BODY}"
 fi
 rm -f "/tmp/${BASENAME}.db.gz" 
 #sudo service domoticz.sh start
