@@ -1,8 +1,7 @@
 --
--- $Id$
+-- $Id: script_time_sensormonitor.lua,v 1.3 2015/11/01 18:48:39 pi Exp $
 --
 logging = true
-debug = false
 
 -- For timing
 timing = false
@@ -18,11 +17,13 @@ if (timing) then nClock = os.clock() end
 alertedvariable="DoorsAlerted"
 monitordevices=uservariables["DoorMonitorDevices"]; 
 excludeddevices=uservariables["DoorMonitorExcluded"]; 
-sensorsalerted=uservariables[alertedvariable];
+doorsalerted=uservariables[alertedvariable];
 devicetimeout=uservariables["DoorTimeOut"]; 
+debug=uservariables["DoorDebug"]; 
 --
 -- Fallback values
 --
+if (debug and debug > 0 ) then debug = true else debug=false end
 if not ( monitordevices ) then monitordevices = "Door" end
 if not ( excludeddevices ) then excludeddevices = "Garage" end
 if not ( devicetimeout ) then devicetimeout = 600 end
@@ -41,7 +42,8 @@ function changedsince(device)
 	seconds = string.sub(ts, 18, 19)
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
 	difftime=math.floor(os.difftime(t1,t2))
-	return math.floor(difftime)
+	-- if (debug) then print("Device " .. device .. " not changed in " .. difftime .. " seconds") end
+	return difftime
 end
 
 function monitored(device)
@@ -63,7 +65,7 @@ function monitored(device)
 			return true
 		end
 	end
-	if (debug) then print("No match for device " ..  device .. " matching " .. matchname) end
+	if (debug) then print("No match for device " ..  device .. " matching " .. monitordevices) end
 	return false
 end
 
@@ -77,32 +79,32 @@ do
 		devstored = "[" .. device .. "]"
 		if ( deltatime > devicetimeout ) then
 			if ( monitored(device) ) then
-				if (logging) then print("Timeout for " .. device .. "=" .. value .. " after " .. deltatime .. " seconds" ) end
-				msg="Door " .. device .. " being " .. value .. " for " .. deltatime .. " or more seconds"
-				if ( sensorsalerted ) then
-					pos = string.find(sensorsalerted,devstored,1,true)
+				msg=device .. " being " .. value .. " for " .. deltatime .. " or more seconds (limit is " .. devicetimeout .. ")"
+				if (logging) then print("Timeout: " .. msg) end
+				if ( doorsalerted ) then
+					pos = string.find(doorsalerted,devstored,1,true)
 					if not ( pos ) then
-						sensorsalerted = sensorsalerted .. devstored
-						if (logging) then print("sensorsalterted addition: " .. device .. " added to " .. sensorsalerted) end
-						commandArray['Variable:' .. alertedvariable]=sensorsalerted
-						commandArray['SendNotification']=msg
+						doorsalerted = doorsalerted .. devstored
+						if (logging) then print("sensorsalterted addition: " .. device .. " added to " .. doorsalerted) end
+						table.insert(commandArray, { ['Variable:' .. alertedvariable] = doorsalerted } )
+						table.insert(commandArray, { ['SendNotification'] = msg } )
 					end
 				else
-					commandArray['SendNotification']=msg .. ". Please add user variable " .. alertedvariable .. " set to value " .. "None to prevent duplicate alerts"
+					table.insert(commandArray, { ['SendNotification'] = msg .. ". Please add user variable " .. alertedvariable .. " set to value " .. "None to prevent duplicate alerts" } )
 				end
 			end
 		end
 	elseif ( value == 'Closed' ) then
 		if (debug) then print("Device " .. device .. " is Closed") end
-		if ( sensorsalerted ) then
+		if ( doorsalerted ) then
 			devstored = "[" .. device .. "]"
-			pos = string.find(sensorsalerted,devstored,1,true)
+			pos = string.find(doorsalerted,devstored,1,true)
 			if ( pos ) then
 				len = string.len(devstored) 
-				sensorsalerted = string.sub(sensorsalerted, 1, pos - 1) .. string.sub(sensorsalerted, pos + len)
-				if (logging) then print("DoorsAlerted removal: " .. device .. " removed from " .. sensorsalerted) end
-				commandArray['Variable:' .. alertedvariable]=sensorsalerted
-				commandArray['SendNotification']="Door " .. device .. " is now " .. value
+				doorsalerted = string.sub(doorsalerted, 1, pos - 1) .. string.sub(doorsalerted, pos + len)
+				if (logging) then print("DoorsAlerted removal: " .. device .. " removed from " .. doorsalerted) end
+				table.insert(commandArray, { ['Variable:' .. alertedvariable] = doorsalerted } )
+				table.insert(commandArray, { ['SendNotification'] = device .. " is now " .. value } )
 			end
 		end
 	end
