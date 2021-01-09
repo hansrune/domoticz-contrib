@@ -29,8 +29,21 @@ if not ( excludeddevices ) then excludeddevices = "Garage" end
 if not ( devicetimeout ) then devicetimeout = 600 end
 
 --
+-- Adapt messaging as preferred
+--
+function sendmsg(msg)
+	-- table.insert(commandArray, { ['SendNotification'] = msg } )
+    -- I use my own pushover for urgent messages (pushover is not enabled in my Domoticz setup)
+	os.execute("/usr/local/bin/pushover '" .. msg .. "' &")
+end
+
+--
 -- No changes should be needed below here
 --
+function setuservar(name, value)
+	table.insert(commandArray, { ['Variable:' .. name] = value } )
+end
+
 function changedsince(device)
 	t1 = os.time()
 	ts = otherdevices_lastupdate[device]
@@ -86,11 +99,11 @@ do
 					if not ( pos ) then
 						doorsalerted = doorsalerted .. devstored
 						if (logging) then print("sensorsalterted addition: " .. device .. " added to " .. doorsalerted) end
-						table.insert(commandArray, { ['Variable:' .. alertedvariable] = doorsalerted } )
-						table.insert(commandArray, { ['SendNotification'] = msg } )
+						setuservar(alertedvariable, doorsalerted)
+						sendmsg(msg)
 					end
 				else
-					table.insert(commandArray, { ['SendNotification'] = msg .. ". Please add user variable " .. alertedvariable .. " set to value " .. "None to prevent duplicate alerts" } )
+					sendmsg(msg .. ". Please add user variable " .. alertedvariable .. " to prevent duplicate alerts")
 				end
 			end
 		end
@@ -103,8 +116,8 @@ do
 				len = string.len(devstored) 
 				doorsalerted = string.sub(doorsalerted, 1, pos - 1) .. string.sub(doorsalerted, pos + len)
 				if (logging) then print("DoorsAlerted removal: " .. device .. " removed from " .. doorsalerted) end
-				table.insert(commandArray, { ['Variable:' .. alertedvariable] = doorsalerted } )
-				table.insert(commandArray, { ['SendNotification'] = device .. " is now " .. value } )
+				setuservar(alertedvariable, doorsalerted)
+				sendmsg(device .. " is now " .. value )
 			end
 		end
 	end
