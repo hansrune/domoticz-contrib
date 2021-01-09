@@ -17,7 +17,6 @@ if (timing) then nClock = os.clock() end
 alertedvariable="DoorsAlerted"
 monitordevices=uservariables["DoorMonitorDevices"]; 
 excludeddevices=uservariables["DoorMonitorExcluded"]; 
-doorsalerted=uservariables[alertedvariable];
 devicetimeout=uservariables["DoorTimeOut"]; 
 debug=uservariables["DoorDebug"]; 
 --
@@ -40,10 +39,6 @@ end
 --
 -- No changes should be needed below here
 --
-function setuservar(name, value)
-	table.insert(commandArray, { ['Variable:' .. name] = value } )
-end
-
 function changedsince(device)
 	t1 = os.time()
 	ts = otherdevices_lastupdate[device]
@@ -59,9 +54,49 @@ function changedsince(device)
 	return difftime
 end
 
+function setuservar(name, value)
+	table.insert(commandArray, { ['Variable:' .. name] = value } )
+end
+
+function addtouservar(name, value)
+	local addvalue = "[" .. value .. "]"
+	local currvalue = uservariables[name]
+
+	if ( currvalue ) then
+		pos = string.find(currvalue,addvalue,1,true)
+		if not ( pos ) then
+			currvalue = currvalue .. addvalue
+			setuservar(name, currvalue)			
+			return true
+		end
+	else
+		sendmsg(msg .. ". Please add user string variable '" .. name .. "' to prevent duplicate alerts")
+	end
+	return false
+end	
+
+function rmfromuservar(name, value)
+	local rmvalue = "[" .. value .. "]"
+	local currvalue = uservariables[name]
+	local pos, len
+
+	if ( currvalue ) then
+		pos = string.find(currvalue,rmvalue,1,true)
+		if ( pos ) then
+			len = string.len(rmvalue) 
+			currvalue = string.sub(currvalue, 1, pos - 1) .. string.sub(currvalue, pos + len)
+			setuservar(name, currvalue)			
+			return true
+		end
+	else
+		sendmsg(msg .. ". Please add user string variable '" .. name .. "' to prevent duplicate alerts")
+	end
+	return false
+end	
+
 function monitored(device)
-	pos = nil
-	exclpos = nil
+	local pos = nil
+	local exclpos = nil
 	for matchname in string.gmatch(monitordevices, "[^,]+")
 	do
 		pos = string.find(device,matchname,1,true)
@@ -82,6 +117,7 @@ function monitored(device)
 	return false
 end
 
+
 commandArray = {}
 -- for device, value in pairs(otherdevices_svalues) 
 for device, value in pairs(otherdevices) 
@@ -89,36 +125,20 @@ do
 	if ( value == 'Open' ) then
 		if (debug) then print("Device " .. device .. " is Open") end
 		deltatime = changedsince(device)
-		devstored = "[" .. device .. "]"
 		if ( deltatime > devicetimeout ) then
 			if ( monitored(device) ) then
 				msg=device .. " being " .. value .. " for " .. deltatime .. " or more seconds (limit is " .. devicetimeout .. ")"
 				if (logging) then print("Timeout: " .. msg) end
-				if ( doorsalerted ) then
-					pos = string.find(doorsalerted,devstored,1,true)
-					if not ( pos ) then
-						doorsalerted = doorsalerted .. devstored
-						if (logging) then print("sensorsalterted addition: " .. device .. " added to " .. doorsalerted) end
-						setuservar(alertedvariable, doorsalerted)
-						sendmsg(msg)
-					end
-				else
-					sendmsg(msg .. ". Please add user variable " .. alertedvariable .. " to prevent duplicate alerts")
+				if (addtouservar(alertedvariable, device)) then
+					sendmsg(msg)
 				end
 			end
 		end
 	elseif ( value == 'Closed' ) then
 		if (debug) then print("Device " .. device .. " is Closed") end
-		if ( doorsalerted ) then
-			devstored = "[" .. device .. "]"
-			pos = string.find(doorsalerted,devstored,1,true)
-			if ( pos ) then
-				len = string.len(devstored) 
-				doorsalerted = string.sub(doorsalerted, 1, pos - 1) .. string.sub(doorsalerted, pos + len)
-				if (logging) then print("DoorsAlerted removal: " .. device .. " removed from " .. doorsalerted) end
-				setuservar(alertedvariable, doorsalerted)
-				sendmsg(device .. " is now " .. value )
-			end
+		if (rmfromuservar(alertedvariable, device)) then
+			if (logging) then print("DoorsAlerted removal: " .. device .. " removed from " .. alertedvariable) end
+			sendmsg(device .. " is now " .. value )
 		end
 	end
 end
