@@ -42,13 +42,14 @@ RC=""
 doreboot () {
     echo "$PROG: ${1}. ${REBOOTMSG}" >&2
     ${LOGERR} "${1}. ${REBOOTMSG}"
+	pushover "${1}. ${REBOOTMSG}"
 	if [[ -n "${REBOOTMSG}" ]] 
 	then
 		if uptime | grep -wq "min"
 		then
 			echo "$PROG: No reboot. Only minutes since last restart" >&2
 		else
-			sudo /sbin/init 6
+			sudo /sbin/shutdown -r now
 		fi
         exit 3
 	fi
