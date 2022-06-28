@@ -22,7 +22,7 @@ repeatdelta=60
 -- Devices must match a substring in the included list
 -- ... but if it is on the exclude list, it is still not used
 --
-included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo", "forsyning" };
+included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Vanning", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo", "forsyning" };
 excluded = { "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
