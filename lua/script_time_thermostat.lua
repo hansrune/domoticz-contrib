@@ -81,7 +81,7 @@ do
 		--
 		thermostatvalue=otherdevices_svalues[commonprefix .. thermostatsuffix]
         if (not thermostatvalue) then 
-            print("ERROR: " .. device .. "-->" .. commonprefix .. temperaturesuffix .. " has no corresponding " .. commonprefix .. thermostatsuffix .. " device")
+            print("WARNING: " .. device .. " has no corresponding " .. commonprefix .. thermostatsuffix .. " device. Likely just an unintended device name for " .. device)
             break
         end
 		thermostatvalue=tonumber(thermostatvalue)
