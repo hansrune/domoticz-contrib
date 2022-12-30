@@ -69,9 +69,11 @@ commandArray = {}
 for device, value in pairs(otherdevices_svalues) 
 do
 	-- if (debug) then print("Device=" ..  device .. " value=" .. value) end
+	-- idx=string.find(device,thermostatsuffix .. '$',1,true) 
 	idx=string.find(device,thermostatsuffix,1,true) 
 	if (idx)
 	then
+	    if (debug) then print("Checking thermostat device=" ..  device .. " value=" .. value) end
 		-- this includes a space after the prefix
 		commonprefix=string.sub(device,1,idx-1)
 		--
@@ -79,7 +81,7 @@ do
 		--
 		thermostatvalue=otherdevices_svalues[commonprefix .. thermostatsuffix]
         if (not thermostatvalue) then 
-            print("ERROR: " .. commonprefix .. temperaturesuffix .. " has no corresponding " .. commonprefix .. thermostatsuffix .. " device")
+            print("ERROR: " .. device .. "-->" .. commonprefix .. temperaturesuffix .. " has no corresponding " .. commonprefix .. thermostatsuffix .. " device")
             break
         end
 		thermostatvalue=tonumber(thermostatvalue)
@@ -87,7 +89,7 @@ do
         -- Set to 0 is interpreted as "disabled", i.e. no on/off actions will be taken
 		--
         if ( thermostatvalue == 0 ) then
-            if (debug) then print("Thermostat " .. commonprefix .. thermostatsuffix .. " is disabled (set to 0)") end
+            if (debug) then print("Thermostat " .. device .. "-->" .. commonprefix .. thermostatsuffix .. " is disabled (set to 0)") end
 			break
 		end
 
@@ -101,7 +103,7 @@ do
 			--
 			tempsensorvalue=otherdevices_svalues[commonprefix .. temperaturesuffix]
 			if (not tempsensorvalue) then 
-				print("ERROR: " .. commonprefix .. thermostatsuffix .. " has no corresponding " .. commonprefix .. temperaturesuffix .. " device")
+				print("ERROR: " .. device .. "-->" .. commonprefix .. thermostatsuffix .. " has no corresponding " .. commonprefix .. temperaturesuffix .. " device")
 				break
 			end
 			tempsensorvalue=tonumber(tempsensorvalue)
@@ -112,19 +114,19 @@ do
 		coolerdev=commonprefix .. coolerswitchsuffix
 		coolerstate=otherdevices[coolerdev]
 		if ( ovenstate ) then
-			if (debug) then print(commonprefix .. "sensor=" .. tempsensorvalue .. " thermostat=" .. thermostatvalue .. " oven=" .. ovenstate) end
+			if (debug) then print(device .. "-->" .. commonprefix .. "sensor=" .. tempsensorvalue .. " thermostat=" .. thermostatvalue .. " oven=" .. ovenstate) end
 			switchdev   = ovendev
 			switchstate = ovenstate
 			switchheat  = 'On'
 			switchcool  = 'Off'
 		elseif ( coolerstate ) then
-			if (debug) then print(commonprefix .. "sensor=" .. tempsensorvalue .. " thermostat=" .. thermostatvalue .. " cooler=" .. coolerstate) end
+			if (debug) then print(device .. "-->" .. commonprefix .. "sensor=" .. tempsensorvalue .. " thermostat=" .. thermostatvalue .. " cooler=" .. coolerstate) end
 			switchdev   = coolerdev
 			switchstate = coolerstate
 			switchheat  = 'Off'
 			switchcool  = 'On'
 		else
-			print("ERROR: " .. commonprefix .. thermostatsuffix .. " has no corresponding " .. commonprefix .. heaterswitchsuffix .. " nor " .. commonprefix .. coolerswitchsuffix .. " device")
+			print("ERROR: " .. device .. "-->" .. commonprefix .. thermostatsuffix .. " has no corresponding " .. commonprefix .. heaterswitchsuffix .. " nor " .. commonprefix .. coolerswitchsuffix .. " device")
 			break
 		end
 
