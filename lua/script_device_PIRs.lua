@@ -145,21 +145,21 @@ if (iir and ( irstate == "On" ))  then
 	if irdev:sub(iir+3,iir+3) == "g" then
 		group="Group:"
 		imode=iir+4
-        onmode = irdev:sub(imode,imode)
+		onmode = irdev:sub(imode,imode)
 		switchdev=basedev
 	else
 		group=""
 		imode=iir+3
-        onmode = irdev:sub(imode,imode)
+		onmode = irdev:sub(imode,imode)
 		switchdev=basedev .. " " .. switchdevsuffix
 		switchval=otherdevices[switchdev]
 		if (not switchval) then
-            switchdev=switchdevprefix .. " " .. basedev 
-            switchval=otherdevices[switchdev]
-            if (not switchval) then
-                print("ERROR: IR sensor "..irdev.." has no corresponding light switch named '"..basedev.." "..switchdevsuffix.."' nor '"..switchdevprefix.." "..basedev.."' device value=", switchval)
-                return commandArray
-            end
+			switchdev=switchdevprefix .. " " .. basedev 
+			switchval=otherdevices[switchdev]
+			if (not switchval) then
+				print("ERROR: IR sensor "..irdev.." has no corresponding light switch named '"..basedev.." "..switchdevsuffix.."' nor '"..switchdevprefix.." "..basedev.."' device value=", switchval)
+				return commandArray
+			end
 		end
 	end
     vardev = 'PIRoff'..basedev
@@ -175,7 +175,12 @@ if (iir and ( irstate == "On" ))  then
         -- return now, the user variable creation need to take effect before the below code works
         return commandArray
     end
-    onduration= tonumber(irdev:sub(imode+1, -2))
+    inumend=string.find(irdev,')',1,true) 
+    if not (inumend) then
+        print("ERROR: IR sensor "..irdev.." has no closing ')' ")
+        return commandArray
+    end
+    onduration= tonumber(irdev:sub(imode+1, inumend-1))
     timenow   = os.time()
     timeoff   = timenow + onduration * 60
     switchdev = group..switchdev
