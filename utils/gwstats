@@ -53,8 +53,8 @@ then
     fi
 fi
 
-IOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "ifInOctets.${IFIDX}" )
-OOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "ifOutOctets.${IFIDX}" )
+IOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "IF-MIB::ifInOctets.${IFIDX}" )
+OOCTETS=$( snmpget -v ${SNMPVERSION} -c ${SNMPPASSWD} -Oqv ${GWIP} "IF-MIB::ifOutOctets.${IFIDX}" )
 FAILCOUNT="0"
 if [[ -z $IOCTETS ]] || [[ -z $OOCTETS ]] 
 then
