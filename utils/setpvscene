@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# $Id$
+#
+PROG=$( basename $0 ) 
+CURLARGS='-s -H "Accept: application/json"'
+LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
+LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
+#
+#hrbu@AC-L6M956D091:~$ curl -s http://rosk-pv3.lan/home/scenes | jq '.[] | select(.ptName == "Alle nede") | .id'
+#curl -s http://rosk-pv3.lan/home/scenes | jq '.[] | .ptName'
+
+function printavail () {
+    echo "$PROG: Available scenes:"
+    jq -r  '.[] |  "    \"" + .ptName + "\" - scene id " + (.id | tostring)' <<< "$1"
+    exit 1
+}
+
+if [ $# -lt 1 ]
+then
+	echo "Usage: $PROG name value"
+	exit 1
+fi
+
+GW="$1"
+SCENE="$2"
+
+if [[ "${SCENE}" =~ ^[0-9] ]]
+then
+	SCENEID="${SCENE}"
+else
+	SCENESAVAIL=$( curl ${CURLARGS} "http://${GW}/home/scenes" ) 
+	if [ -z "${SCENESAVAIL}" ]
+	then
+		echo "$PROG: Error - cannot get available scenes from http://${GW}/home/scenes "
+		${LOGERR} "Cannot get available scenes"
+		exit 2
+	fi
+	if [ -z "${SCENE}" ]
+	then
+        printavail "${SCENESAVAIL}"
+	else
+		SCENEID=$( jq ".[] | select(.ptName == \"${SCENE}\") | .id" <<< "${SCENESAVAIL}" )
+		if [ -z "${SCENEID}" ]
+		then
+			echo "$PROG: No match for scene ${SCENE}"
+			${LOGERR} "No match for scene ${SCENE}"
+            printavail "${SCENESAVAIL}"
+        fi
+    fi
+fi
+
+RESP=$( curl ${CURLARGS} -X PUT "${GW}/home/scenes/${SCENEID}/activate" )
+echo "$PROG: Scene ID id ${SCENEID}. Response is ${RESP}"
+${LOGINF} "Scene ID id ${SCENEID}. Response is ${RESP}"
+
+# vim:ts=4:sw=4:shiftwidth=4:softtabstop=4:expandtab
