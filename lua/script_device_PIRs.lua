@@ -51,11 +51,11 @@ if not (retrans)         then retrans=600                   end
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("name='" ..  i .. "' otherdevice=" .. v .. "<--") end
 -- for i, v in pairs(devicechanged) do print("Device changed="..i.." value="..v) end
-
+-- for i, v un pairs(otherdevices_scenesgroups) do print("Group name=" ..  i .. " svalue=" .. v .. "<--") end
 
 function dbg(s)
     if (debug) then 
-        print("PIRDebug: " .. s)
+        print("PIRDebugSwitch: " .. s)
     end
 end
 
@@ -72,7 +72,7 @@ function timedifference(s)
 	return math.floor(difference)
 end
  
-function timetest(opertime,stem,state)
+function timetest(opertime,stem)
     if ( opertime == "a" or opertime == "A" ) then
         return true
     end
@@ -87,12 +87,9 @@ function timetest(opertime,stem,state)
 		if (not luxval) then
 			print("ERROR: Thers is no light sensor named" .. luxdev .. " or " .. luxdevsuffix)
         else
-            if ( state == "Off" ) then
-                dbg("Light sensor " .. luxdev .. " is now " .. luxval .. " Threshold from state '" .. state .. "' to 'On' is < " .. luxlimiton) 
-                if ( tonumber(luxval) < luxlimiton ) then return true end
-            else
-                dbg("Light sensor " .. luxdev .. " is now " .. luxval .. " Threshold from state '" .. state .. "' to 'Off' is < " .. luxlimitoff)
-                if ( tonumber(luxval) < luxlimitoff ) then return true end
+            dbg("Light sensor '" .. luxdev .. "' is now '" .. luxval .. "' Threshold is < " .. luxlimiton) 
+            if ( tonumber(luxval) < luxlimiton ) then
+                return true
             end
 		end
         return false
@@ -146,25 +143,23 @@ if (iir and ( irstate == "On" ))  then
 		group="Group:"
 		imode=iir+4
 		onmode = irdev:sub(imode,imode)
-		switchdev=basedev
+		switchdev=basedev .. " " .. switchdevsuffix
+		switchval=otherdevices_scenesgroups[switchdev]
+		switchdev=group..basedev .. " " .. switchdevsuffix
 	else
 		group=""
 		imode=iir+3
 		onmode = irdev:sub(imode,imode)
 		switchdev=basedev .. " " .. switchdevsuffix
 		switchval=otherdevices[switchdev]
-		if (not switchval) then
-			switchdev=switchdevprefix .. " " .. basedev 
-			switchval=otherdevices[switchdev]
-			if (not switchval) then
-				print("ERROR: IR sensor "..irdev.." has no corresponding light switch named '"..basedev.." "..switchdevsuffix.."' nor '"..switchdevprefix.." "..basedev.."' device value=", switchval)
-				return commandArray
-			end
-		end
 	end
+    if (not switchval) then
+        print("ERROR: IR sensor '"..irdev.."' has no corresponding light switch/group named '"..switchdev.."'")
+        return commandArray
+    end
     vardev = 'PIRoff'..basedev
     if ( not uservariables[vardev]) then
-        print("INFO: IR sensor "..irdev.." has no corresponding uservariable named '"..vardev.."'. Creating variable ...")
+        print("INFO: IR sensor '"..irdev.."' has no corresponding uservariable named '"..vardev.."'. Creating variable ...")
         --
         -- comment / correct if automatic variable creation is not desired or your server URL is not http://127.0.0.1:8080
         -- Note that no URL encode is done - devices with blanks in basename will not work
@@ -175,29 +170,34 @@ if (iir and ( irstate == "On" ))  then
         -- return now, the user variable creation need to take effect before the below code works
         return commandArray
     end
-    inumend=string.find(irdev,')',1,true) 
+
+    inumend=string.find(irdev,')',iir+4,true) 
     if not (inumend) then
-        print("ERROR: IR sensor "..irdev.." has no closing ')' ")
+        print("ERROR: IR sensor '"..irdev.."' has no closing ')' after string position "..iir+4)
         return commandArray
     end
     onduration= tonumber(irdev:sub(imode+1, inumend-1))
     timenow   = os.time()
     timeoff   = timenow + onduration * 60
-    switchdev = group..switchdev
-    switchval = otherdevices[switchdev]
-    dt        = timedifference(otherdevices_lastupdate[switchdev])
-    tt        = timetest(onmode,basedev,switchval)
-    dbg("TimeTest="..tostring(tt).." IRdev="..irdev.." state="..irstate.." dt=" .. dt .. " group= "..group.." basedev="..basedev.." switchdev="..switchdev.." onmode="..onmode.." onduration=" .. onduration .. " switchdev="..switchdev.." switchval="..switchval)
+
+    if ( group == "" ) then
+        dt = timedifference(otherdevices_lastupdate[switchdev])
+    else
+        -- no retransmit for groups / scenes
+        dt = 0
+    end
+    tt = timetest(onmode,basedev,switchval)
+    dbg("TimeTest="..tostring(tt).." irdev='"..irdev.."' switchdev="..switchdev.." switchval="..switchval.." onmode="..onmode.." onduration="..onduration.." dt="..dt)
     if (tt) then
         table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
         if ( switchval == "Off" ) then
             table.insert(commandArray,{ [switchdev] = 'On' })
-            dbg("IR device "..irdev.." state "..irstate.." triggered "..switchdev.." from "..switchval.." to On")
+            dbg("IR device "..irdev.." state "..irstate.." triggered "..group..switchdev.." from "..switchval.." to On")
         elseif ( dt > retrans ) then
             table.insert(commandArray,{ [switchdev] = 'On' })
             dbg("IR device "..irdev.." state "..irstate.." retransmit after " .. retrans .. " seconds trigger "..switchdev.." from "..switchval.." to On")
         else
-            dbg("IR device "..irdev.." state "..irstate.." no-op ("..dt.."<="..retrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
+            dbg("IR device "..irdev.." state "..irstate.." no retransmit ("..dt.."<="..retrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
         end
     end
 end

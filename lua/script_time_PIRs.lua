@@ -43,21 +43,21 @@ if not (switchdevprefix) then switchdevprefix="Dimmer" end
 
 function dbg(s)
     if (debug) then 
-        print("PIRDebug: " .. s)
+        print("PIRDebugTime: " .. s)
     end
 end
 
 function timedifference(s)
-	year = string.sub(s, 1, 4)
-	month = string.sub(s, 6, 7)
-	day = string.sub(s, 9, 10)
-	hour = string.sub(s, 12, 13)
-	minutes = string.sub(s, 15, 16)
-	seconds = string.sub(s, 18, 19)
-	t1 = os.time()
-	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difference = os.difftime (t1, t2)
-	return math.floor(difference)
+    year = string.sub(s, 1, 4)
+    month = string.sub(s, 6, 7)
+    day = string.sub(s, 9, 10)
+    hour = string.sub(s, 12, 13)
+    minutes = string.sub(s, 15, 16)
+    seconds = string.sub(s, 18, 19)
+    t1 = os.time()
+    t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
+    difference = os.difftime (t1, t2)
+    return math.floor(difference)
 end
  
  
@@ -66,50 +66,46 @@ commandArray = {}
 for irdev,irstate in pairs(otherdevices) do
     iir=string.find(irdev,"IR(",1,true) 
     if (iir) then
-		basedev=string.sub(irdev,1,iir-2)
-		if irdev:sub(iir+3,iir+3) == "g" then
-			group="Group:"
-			imode=iir+4
-			switchdev=basedev
-		else
-			group=""
-			imode=iir+3
+        basedev=string.sub(irdev,1,iir-2)
+        if irdev:sub(iir+3,iir+3) == "g" then
+            group="Group:"
+            imode=iir+4
+            onmode = irdev:sub(imode,imode)
+            switchdev=basedev .. " " .. switchdevsuffix
+            switchval=otherdevices_scenesgroups[switchdev]
+            switchdev=group..basedev .. " " .. switchdevsuffix
+        else
+            group=""
+            imode=iir+3
+            onmode = irdev:sub(imode,imode)
             switchdev=basedev .. " " .. switchdevsuffix
             switchval=otherdevices[switchdev]
-            if (not switchval) then
-                switchdev=switchdevprefix .. " " .. basedev 
-                switchval=otherdevices[switchdev]
-                if (not switchval) then
-                    print("ERROR: IR sensor "..irdev.." has no corresponding light switch named '"..basedev.." "..switchdevsuffix.."' nor '"..switchdevprefix.." "..basedev.."' device val=", switchval)
-                    return commandArray
-                end
-            end
-		end
-        switchdev = group .. switchdev
-        switchval = otherdevices[switchdev]
-        uservar   = 'PIRoff' .. basedev
-        timenow   = os.time()
-        timeoff   = uservariables[uservar]
-        if (not timeoff) then
-            dbg("PIRTimeDebug: Device '" .. switchdev .. "' is not active by '" .. irdev .. "'")
-            return commandArray
         end
-        
-        timeoff = tonumber(timeoff)
-        if ( timeoff ~= 0 and timenow >= timeoff) then
-            table.insert(commandArray,{ [switchdev] = 'Off' })
-            table.insert(commandArray,{ ['Variable:'..uservar] = "0" })
-            if (logging) then print("Switching off '" .. switchdev .. "' / resetting '" .. uservar .. "'") end
+        if (switchval) then
+            vardev = 'PIRoff' .. basedev
+            endtime = uservariables[vardev]
+            if ( endtime ) then 
+                timenow  = os.time()
+                timeleft = endtime - timenow
+                if ( timenow > endtime ) then
+                    if ( switchval == "Off" ) then
+                        dbg( "PIRTimeDebug: Device " .. switchdev .. " is already " .. switchval )
+                    else 
+                        commandArray[switchdev] = 'Off'
+                    end
+                else
+                    dbg( "'" .. switchdev .. "' has " .. timeleft .. " seconds left before switched off. Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
+                end
+            else
+                print("INFO: IR sensor '"..irdev.."' has no corresponding uservariable named '"..vardev.."'. Skipping device")
+            end
         else
-            timetill = timeoff-timenow
-            if ( timetill < 0 ) then timetill = "n/a" end
-            if ( timeoff == 0 ) then timeoff = "inactive" end
-            dbg("Device " .. switchdev .. " is " .. switchval .. " - off after " .. timetill .. " seconds (timeoff=" .. timeoff .. " timenow=" .. timenow .. ")")
+            print("ERROR: IR sensor '"..irdev.."' has no corresponding light switch/group named '"..switchdev.."'")
         end
     end
 end
  
 return commandArray
 --
--- vi:ts=4:sw=4:sts=4:et:
+-- vim:tabstop=4:shiftwidth=4:softtabstop=4:expandtab
 --
