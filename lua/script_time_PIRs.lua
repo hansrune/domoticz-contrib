@@ -25,42 +25,36 @@
 -- $Id: script_time_PIRs.lua,v 1.3 2015/12/13 18:54:02 pi Exp $
 --
 logging = true
+debug=uservariables["DebugPIR"]; 
+if (not debug ) then debug = 0 end
+devdebug=uservariables["DebugDevice"]
 --
 -- Congfigure to your needs - either via user variables, or the fallback values below
 --
-debug=uservariables["PIRDebug"]; 
 switchdevsuffix=uservariables["PIRSwitchDevSuffix"]; 
 switchdevprefix=uservariables["PIRSwitchDevPrefix"]; 
 --
 -- Default / fallback values
 --
-if (debug and debug > 0 ) then debug = true else debug=false end
 if not (switchdevsuffix) then switchdevsuffix="Lys" end
 if not (switchdevprefix) then switchdevprefix="Dimmer" end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("Name=" ..  i .. " otherdevice=" .. v .. "<--") end
 
-function dbg(s)
-    if (debug) then 
-        print("PIRDebugTime: " .. s)
+function dbg(lvl,s)
+    local msg, p
+    if (lvl <= debug) then 
+        msg = "DebugPIR " .. lvl .. "/" .. debug ..": " .. s
+        if ( devdebug ) then
+            p = string.find(msg, devdebug, 1, true)
+            if (p) then print(msg .. " (debugdevice " .. devdebug .. ")") end
+        else
+            print(msg)
+        end
     end
 end
 
-function timedifference(s)
-    year = string.sub(s, 1, 4)
-    month = string.sub(s, 6, 7)
-    day = string.sub(s, 9, 10)
-    hour = string.sub(s, 12, 13)
-    minutes = string.sub(s, 15, 16)
-    seconds = string.sub(s, 18, 19)
-    t1 = os.time()
-    t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-    difference = os.difftime (t1, t2)
-    return math.floor(difference)
-end
- 
- 
 commandArray = {}
  
 for irdev,irstate in pairs(otherdevices) do
@@ -87,17 +81,21 @@ for irdev,irstate in pairs(otherdevices) do
             if ( endtime ) then 
                 timenow  = os.time()
                 timeleft = endtime - timenow
-                if ( timenow > endtime ) then
-                    if ( switchval == "Off" ) then
-                        dbg( "PIRTimeDebug: Device " .. switchdev .. " is already " .. switchval )
-                    else 
-                        commandArray[switchdev] = 'Off'
+                if ( endtime > 0 ) then
+                    if ( timenow > endtime ) then
+                        if ( switchval == "Off" ) then
+                            dbg(3, "Device " .. switchdev .. " is already " .. switchval .. " for sensor " .. irdev )
+                        else 
+                            table.insert(commandArray,{ [switchdev] = 'Off' })
+                        end
+                    else
+                        dbg(3, "'" .. switchdev .. "' has " .. timeleft .. " seconds left before switching off. Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
                     end
                 else
-                    dbg( "'" .. switchdev .. "' has " .. timeleft .. " seconds left before switched off. Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
+                    dbg(5, "'" .. switchdev .. "' has no active timer and state is " .. switchval .. " Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
                 end
             else
-                print("INFO: IR sensor '"..irdev.."' has no corresponding uservariable named '"..vardev.."'. Skipping device")
+                print("WARNING: IR sensor '"..irdev.."' has no corresponding uservariable named '"..vardev.."'. Skipping device")
             end
         else
             print("ERROR: IR sensor '"..irdev.."' has no corresponding light switch/group named '"..switchdev.."'")

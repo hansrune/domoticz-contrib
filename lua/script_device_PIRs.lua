@@ -25,37 +25,45 @@
 -- $Id: script_device_PIRs.lua,v 1.2 2015/12/13 18:54:02 pi Exp $
 --
 logging = true
+debug=uservariables["DebugPIR"]; 
+if (not debug ) then debug = 0 end
+devdebug=uservariables["DebugDevice"]
 --
 -- Congfigure to your needs - either via user variables, or the fallback values below
 --
-debug=uservariables["PIRDebug"]; 
 switchdevsuffix=uservariables["PIRSwitchDevSuffix"]; 
 switchdevprefix=uservariables["PIRSwitchDevPrefix"]; 
 luxdevsuffix=uservariables["PIRLuxDev"]; 
 nightdevice=uservariables["PIRNightSwitch"]; 
 luxlimiton=uservariables["PIRLuxLimitOn"]; 
 luxlimitoff=uservariables["PIRLuxLimitOff"]; 
-retrans=uservariables["PIRRetrans"]; 
+onretrans=uservariables["PIRRetrans"]; 
 --
 -- Default / fallback values
 --
-if (debug and debug > 0) then debug = true else debug=false end
 if not (switchdevsuffix) then switchdevsuffix="Lys"         end
 if not (switchdevprefix) then switchdevprefix="Dimmer"      end
 if not (luxdevsuffix)    then luxdevsuffix="Lux"            end
 if not (nightdevice)     then nightdevice="Natt"            end
 if not (luxlimiton)      then luxlimiton=10                 end
 if not (luxlimitoff)     then luxlimitoff=20                end
-if not (retrans)         then retrans=600                   end
+if not (onretrans)       then onretrans=20                    end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("name='" ..  i .. "' otherdevice=" .. v .. "<--") end
 -- for i, v in pairs(devicechanged) do print("Device changed="..i.." value="..v) end
 -- for i, v un pairs(otherdevices_scenesgroups) do print("Group name=" ..  i .. " svalue=" .. v .. "<--") end
 
-function dbg(s)
-    if (debug) then 
-        print("PIRDebugSwitch: " .. s)
+function dbg(lvl,s)
+    local msg, p
+    if (lvl <= debug) then 
+        msg = "DebugPIR " .. lvl .. "/" .. debug ..": " .. s
+        if ( devdebug ) then
+            p = string.find(msg, devdebug, 1, true)
+            if (p) then print(msg .. " (debugdevice " .. devdebug .. ")") end
+        else
+            print(msg)
+        end
     end
 end
 
@@ -87,7 +95,7 @@ function timetest(opertime,stem)
 		if (not luxval) then
 			print("ERROR: Thers is no light sensor named" .. luxdev .. " or " .. luxdevsuffix)
         else
-            dbg("Light sensor '" .. luxdev .. "' is now '" .. luxval .. "' Threshold is < " .. luxlimiton) 
+            dbg(3, "Light sensor '" .. luxdev .. "' is now '" .. luxval .. "' Threshold is < " .. luxlimiton) 
             if ( tonumber(luxval) < luxlimiton ) then
                 return true
             end
@@ -165,7 +173,7 @@ if (iir and ( irstate == "On" ))  then
         -- Note that no URL encode is done - devices with blanks in basename will not work
         --
         openurl='http://127.0.0.1:8080/json.htm?type=command&param=adduservariable&vname='..vardev..'&vtype=0&vvalue=-1'
-        dbg("Create variable: " .. openurl)
+        dbg(3, "Create variable: " .. openurl)
         table.insert(commandArray,{ ['OpenURL'] = openurl })
         -- return now, the user variable creation need to take effect before the below code works
         return commandArray
@@ -187,17 +195,17 @@ if (iir and ( irstate == "On" ))  then
         dt = 0
     end
     tt = timetest(onmode,basedev,switchval)
-    dbg("TimeTest="..tostring(tt).." irdev='"..irdev.."' switchdev="..switchdev.." switchval="..switchval.." onmode="..onmode.." onduration="..onduration.." dt="..dt)
+    dbg(5,"TimeTest="..tostring(tt).." irdev='"..irdev.."' switchdev="..switchdev.." switchval="..switchval.." onmode="..onmode.." onduration="..onduration.." dt="..dt)
     if (tt) then
         table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
         if ( switchval == "Off" ) then
             table.insert(commandArray,{ [switchdev] = 'On' })
-            dbg("IR device "..irdev.." state "..irstate.." triggered "..group..switchdev.." from "..switchval.." to On")
-        elseif ( dt > retrans ) then
+            dbg(1,"IR device "..irdev.." state "..irstate.." triggered "..group..switchdev.." from "..switchval.." to On")
+        elseif ( onretrans > 0 and dt > onretrans ) then
             table.insert(commandArray,{ [switchdev] = 'On' })
-            dbg("IR device "..irdev.." state "..irstate.." retransmit after " .. retrans .. " seconds trigger "..switchdev.." from "..switchval.." to On")
+            dbg(1,"IR device "..irdev.." state "..irstate.." - Repeat trigger ("..dt..">"..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
         else
-            dbg("IR device "..irdev.." state "..irstate.." no retransmit ("..dt.."<="..retrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
+            dbg(1,"IR device "..irdev.." state "..irstate.." - No repeat trigger so close to last trigger ("..dt.."<="..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
         end
     end
 end
