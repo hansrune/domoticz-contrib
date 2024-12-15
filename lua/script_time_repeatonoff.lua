@@ -2,10 +2,12 @@
 -- $Id: script_time_repeatonoff.lua,v 1.3 2015/03/16 19:20:31 pi Exp $
 --
 logging = true
-debug=uservariables["RepeatDebug"]; 
+debug=uservariables["DebugRepeats"]; 
+if (not debug ) then debug = 0 end
+devdebug=uservariables["DebugDevice"]
 
 -- For timing
-timing = false
+timing = debug
 if (timing) then nClock = os.clock() end
 
 --
@@ -21,22 +23,31 @@ repeatdelta=60
 --
 -- Devices must match a substring in the included list
 -- ... but if it is on the exclude list, it is still not used
+-- Include strings are plain text matches
+-- Exclude strings are pattern matches
 --
-included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Vanning", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo", "forsyning" };
-excluded = { "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
+included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo" };
+excluded = { "^Vanning", "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
 -- No changes should be needed below here
 --
-function dbg(s)
-    if (debug) then 
-        print("PIRDebug: " .. s)
+function dbg(lvl,s)
+    local msg, p
+    if (lvl <= debug) then 
+        msg = "DebugRepeat " .. lvl .. "/" .. debug ..": " .. s
+        if ( devdebug ) then
+            p = string.find(msg, devdebug, 1, true)
+            if (p) then print(msg .. " (debugdevice " .. devdebug .. ")") end
+        else
+            print(msg)
+        end
     end
 end
-
 function changedsince(device)
 	t1 = os.time()
 	ts = otherdevices_lastupdate[device]
+    dbg(6,device .. " last updated at " .. ts)
 	year = string.sub(ts, 1, 4)
 	month = string.sub(ts, 6, 7)
 	day = string.sub(ts, 9, 10)
@@ -48,7 +59,10 @@ function changedsince(device)
 	return math.floor(difftime)
 end
 
-commandArray = {}
+commandArray  = {}
+minute10      = math.floor(os.time() / 60) % 10
+numtriggered  = 0
+devstriggered = ""
 for device, value in pairs(otherdevices) 
 do
 	if ( value == "On" or value == "Off" or value == "Group On" or value == "Group Off" )
@@ -60,30 +74,41 @@ do
 			if ( pos ) then break end
 		end
 	    if ( pos == nil ) then 
-			dbg("Device " ..  device .. " not included in repeat on/off devices") 
+			dbg(9,"Device " ..  device .. " not included in repeat on/off devices") 
 		else
 			pos = nil
 			for idx,name in ipairs(excluded) 
 			do
-				pos = string.find(device,name,1,true)
+				pos = string.find(device,name)
 				matchname = name
 				if ( pos ) then break end
 			end
 			if ( pos ) then 
-				dbg("Device " ..  device .. " excluded on matching " .. matchname) 
+				dbg(7,"Device " ..  device .. " excluded on matching " .. matchname) 
 			else
-				dbg("Device=" ..  device .. " value=" .. value) 
-				since = changedsince(device)
-				if ( since > repeatdelay ) then
+                devidx = otherdevices_idx[device]
+                dev10  = devidx % 10
+				since  = changedsince(device)
+
+                if ( dev10 == minute10 ) then
 					table.insert(commandArray,{ [device] = value })
-					if (logging) then print(device .. " repeat set to value " .. value .. " (last changed " .. since .. " seconds ago)"  ) end
-					repeatdelay = repeatdelay + repeatdelta
-				end
+					dbg(5, device .. "(" .. devidx .. "/" .. dev10 ..") repeat set to value " .. value .. " (last seen " .. since .. " seconds ago)"  )
+                    numtriggered = numtriggered + 1
+                    devstriggered = devstriggered .. " '" .. device .. "'=" .. value 
+                else
+                    dbg(5, "No time for " .. device .. " (" .. devidx .. "/" .. dev10 .. ") value " .. value .. " (last seen " .. since .. " seconds ago)" )  
+                    --if ( since > repeatdelay ) then
+                    --    table.insert(commandArray,{ [device] = value })
+                    --    if (logging) then print(device .. " repeat set to value " .. value .. " (last changed " .. since .. " seconds ago)"  ) end
+                    --    repeatdelay = repeatdelay + repeatdelta
+                    --end
+                end
 			end
 		end
 	end
 end
-if (timing) then print("Script elapsed time: " .. os.clock()-nClock) end
+if (logging) then print(numtriggered .. " devices repeat triggered:" .. devstriggered) end 
+if (timing) then dbg(1,"Script elapsed time: " .. os.clock()-nClock) end
 return commandArray
 --
 -- vim:ts=4:sw=4
