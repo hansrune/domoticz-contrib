@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+PROG=$( basename $0 ) 
+SERVER="http://127.0.0.1:8080"
+CURLARGS='-s -H "Accept: application/json"'
+DBGPRINT=${DBGPRINT:-":"}
+DBGPRINT=${DBGPRINT:-"logger -t ${PROG} -p user.debug"}
+LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
+LOGERR=${LOGERR:-"logger -t ${PROG} -p user.error"}
+#
+if [ $# -lt 1 ]
+then
+	echo "Usage: $PROG name [value]"
+	exit 1
+fi
+
+NAME="$1"
+NVALUE="$2"
+SVALUE="$3"
+
+if [ -z "${NAME##[0-9]*}" ]
+then
+    IDX="${NAME}"
+else
+    IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=all&used=true" | jq -r ".result[] | select ( .Name == \"${NAME}\" )| .idx" )
+
+	if [ -z "${IDX}" ]
+	then
+		echo "$PROG: Cannot find device for ${NAME}" >&2
+		exit 2
+	fi
+fi
+
+if [[ -z ${NVALUE} ]]
+then
+    echo "${IDX}"
+    exit 0
+fi
+
+RETURN=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=udevice&idx=${IDX}&nvalue=${NVALUE}&svalue=${SVALUE}" | awk -F'"' '/status|title/ { printf $4 " " }' )
+if [[ $? -eq 0 ]] && [[ $RETURN =~ "OK" ]]
+then
+	echo "$RETURN"
+	exit 0
+else
+	echo "ERROR: $RETURN" >&2
+	exit 3
+fi
+
+# :tabSize=4:indentSize=4:noTabs=true
+# vim:ts=4:sw=4
