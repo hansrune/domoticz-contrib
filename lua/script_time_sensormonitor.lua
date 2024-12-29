@@ -2,11 +2,23 @@
 -- $Id: script_time_sensormonitor.lua,v 1.3 2015/11/01 18:48:39 pi Exp $
 --
 logging = true
-debug = false
+debug=uservariables["DebugSensorMonitor"]; 
+if (not debug ) then debug = 0 end
+devdebug=uservariables["DebugDevice"]
+if (debug>0) then nClock = os.clock() end
 
--- For timing
-timing = false
-if (timing) then nClock = os.clock() end
+function dbg(lvl,s)
+    local msg, p
+    if (lvl <= debug) then 
+        msg = "DebugSensorMonitor " .. lvl .. "/" .. debug ..": " .. s
+        if ( devdebug ) then
+            p = string.find(msg, devdebug, 1, true)
+            if (p) then print(msg .. " (debugdevice " .. devdebug .. ")") end
+        else
+            print(msg)
+        end
+    end
+end
 
 --
 -- User variables from Domoticz setup
@@ -104,15 +116,15 @@ function monitored(device)
             do
                 exclpos = string.find(device,exname,1,true)
                 if ( exclpos ) then
-                    if (debug) then print("Excluded device " ..  device .. "  matching " .. exname) end
+                    dbg(5,"Excluded device " ..  device .. "  matching " .. exname) 
                     return false
                 end
             end
-            if (debug) then print("Included device " ..  device .. " matching " .. matchname) end
+            dbg(3,"Included device " ..  device .. " matching " .. matchname) 
             return true
         end
     end
-    if (debug) then print("No match for device " ..  device .. " matching " .. monitordevices) end
+    dbg(7, "No match for device " ..  device .. " matching " .. monitordevices) 
     return false
 end
 
@@ -135,7 +147,7 @@ do
         end
     end
 end
-if (timing) then print("Script elapsed time: " .. os.clock()-nClock) end
+if (debug > 0) then print("Script elapsed time: " .. os.clock()-nClock) end
 return commandArray
 --
 -- vim:ts=4:sw=4

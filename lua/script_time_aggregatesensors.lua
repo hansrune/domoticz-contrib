@@ -1,14 +1,26 @@
 --
 -- $Id: script_time_aggregatesensors.lua,v 1.4 2019/05/15 08:32:21 pi Exp $
 --
+-- logging = true
+-- dbg = false
 logging = true
-dbg = false
+debug=uservariables["DebugAggregate"]; 
+if (not debug ) then debug = 0 end
+devdebug=uservariables["DebugDevice"]
 
--- Extra debugging in included / excluded devices
-exdbg = false
+function dbg(lvl,s)
+    local msg, p
+    if (lvl <= debug) then 
+        msg = "DebugAggregate " .. lvl .. "/" .. debug ..": " .. s
+        if ( devdebug ) then
+            p = string.find(msg, devdebug, 1, true)
+            if (p) then print(msg .. " (debugdevice " .. devdebug .. ")") end
+        else
+            print(msg)
+        end
+    end
+end
 
--- For timing
-timingdbg = false
 -- Also used to time out in case things loop
 nClock = os.clock()
 
@@ -18,7 +30,6 @@ nClock = os.clock()
 incldevices=uservariables["AggregateDevices"]; 
 excldevices=uservariables["AggregateExcluded"]; 
 devicetimeout=uservariables["AggregateDeviceTimeOut"]; 
-dbg=uservariables["AggregateDebug"]; 
 maxdiff=uservariables["AggregateMaxDiff"]; 
 --
 -- Fallback values
@@ -27,7 +38,6 @@ if not ( incldevices ) then incldevices = "Temp$,Lux$" end
 if not ( excldevices ) then excldevices = "egulator" end
 if not ( devicetimeout ) then devicetimeout = 300 end
 if not ( maxdiff ) then maxdiff = "30%" end
-if not ( dbg ) or ( dbg == 0 ) then dbg = false end
 
 commandArray = {}
 
@@ -64,7 +74,7 @@ function updatedevice(d)
     local i = otherdevices_idx[d]
     local cmd, v, s, k
     if ( #devicevalues == 0 ) then
-        if (exdbg) then print("Main device " .. d .. " not updated (idx " .. i .. ", " .. #devicevalues .. " subsensors in use)") end
+        if (debug >= 5) then dbg(5, "Main device " .. d .. " not updated (idx " .. i .. ", " .. #devicevalues .. " subsensors in use)") end
         return
     end
     
@@ -120,12 +130,12 @@ do
             do
                 exclpos = string.find(maindev,exname)
                 if ( exclpos ) then 
-                    if (exdbg) then print("Excluded device " ..  maindev .. "  matching " .. exname) end
+                    if (debug >= 7) then dbg(5,"Excluded device " ..  maindev .. "  matching " .. exname) end
                     break 
                 end
             end
             if (exclpos) then break end
-            if (exdbg) then print("Included device " ..  maindev .. " matching " .. matchname .. " value=" .. mainval) end
+            if (debug >= 5) then dbg(5, "Included device " ..  maindev .. " matching " .. matchname .. " value=" .. mainval) end
             p = string.find(mainval, ";", 1, true)
             if (p) then mainval = string.sub( mainval, 1, p - 1 ) end
             maindtime = changedsince(maindev)
@@ -151,42 +161,42 @@ do
                         if ((string.sub(subdev, -1) == "+" ) and (subdtime <= devicetimeout)) then
                             -- Subdevice ends in +, so include as long as it has not timed out
                             collectdata(string.sub(subdev, 1, -2), subval)
-                            if (dbg) then print("Subdevice " .. string.sub(subdev, 1, -2) .. "+ value " .. subval .. " inluded as name ends in +") end
+                            dbg(3, "Subdevice " .. string.sub(subdev, 1, -2) .. "+ value " .. subval .. " inluded as name ends in +")
                         elseif ( maindtime > devicetimeout ) and (subdtime <= devicetimeout) then
                             -- If main device is not updated, collect all subdevice values that are not timed out
                             collectdata(subdev, subval)
-                            print("Subdevice " ..  subdev .. " value " .. subval .. " included due to main device timeout")
+                            dbg(0, "Subdevice " ..  subdev .. " value " .. subval .. " included due to main device timeout")
                         else
                             -- ... else, collect only those within tolerable deviations
                             -- For new sensors, the initial value is 0, so make sure we treat that as OK 
                             diff = 0
-                                                        if ( mainval ~= 0 ) then
+                            if ( mainval ~= 0 ) then
                                 if ( maxdiffunit == "" )
                                 then
                                     diff = math.abs(subval - mainval)
                                 else
                                     diff = math.ceil(100 * math.abs( 1 - subval / mainval ))
                                 end
-                                                        end
+                            end
                             inc = "excluded"
                             if ( diff <= maxdiffval ) then
                                 collectdata(subdev, subval)
                                 inc = "included"
                             end
-                            if (dbg) then print("Subdevice " ..  subdev .. " value " .. subval .. " " .. inc .. ", main device " .. mainval .. ", difference " .. diff .. maxdiffunit .. ", maximum " .. maxdiffval .. maxdiffunit) end
+                            dbg(3, "Subdevice " ..  subdev .. " value " .. subval .. " " .. inc .. ", main device " .. mainval .. ", difference " .. diff .. maxdiffunit .. ", maximum " .. maxdiffval .. maxdiffunit)
                         end
                     else
-                        if (dbg) then print("Subdevice " .. subdev .. " value " .. subval .. " excluded. Not seen for " .. subdtime .. " seconds" ) end
+                        dbg(3, "Subdevice " .. subdev .. " value " .. subval .. " excluded. Not seen for " .. subdtime .. " seconds" )
                     end
                 end
             end
             updatedevice(maindev)
         else
-            if (exdbg) then print("No match device " ..  maindev .. " no match for " .. matchname) end
+            if (debug >= 5) then dbg(5, "No match device " ..  maindev .. " no match for " .. matchname) end
         end
     end
 end
-if (timingdbg) then print("Script elapsed time: " .. os.clock()-nClock) end
+dbg(1, "Script elapsed time: " .. os.clock()-nClock)
 
 return commandArray
 --
