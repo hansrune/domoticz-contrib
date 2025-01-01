@@ -197,15 +197,23 @@ if (iir and ( irstate == "On" ))  then
     tt = timetest(onmode,basedev,switchval)
     dbg(5,"TimeTest="..tostring(tt).." irdev='"..irdev.."' switchdev="..switchdev.." switchval="..switchval.." onmode="..onmode.." onduration="..onduration.." dt="..dt)
     if (tt) then
-        table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
-        if ( switchval == "Off" ) then
+        -- if set, then done by PIR controls - else leave a manual switch alone
+        endtime = uservariables[vardev]
+        if ( not endtime ) then endtime = 0 end
+
+        if ( switchval == "Off" or switchval == "Mixed" ) then
+            table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
             table.insert(commandArray,{ [switchdev] = 'On' })
             dbg(1,"IR device "..irdev.." state "..irstate.." triggered "..group..switchdev.." from "..switchval.." to On")
-        elseif ( onretrans > 0 and dt > onretrans ) then
+        elseif ( endtime > 0 and onretrans > 0 and dt > onretrans ) then
+            table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
             table.insert(commandArray,{ [switchdev] = 'On' })
             dbg(1,"IR device "..irdev.." state "..irstate.." - Repeat trigger ("..dt..">"..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
-        else
+        elseif ( endtime > 0 ) then
+            table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
             dbg(1,"IR device "..irdev.." state "..irstate.." - No repeat trigger so close to last trigger ("..dt.."<="..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
+        else 
+            dbg(1,"IR device "..irdev.." state "..irstate.." - assumed manual control for "..switchdev.." state " .. switchval)
         end
     end
 end
