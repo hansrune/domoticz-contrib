@@ -47,7 +47,7 @@ if not (luxdevsuffix)    then luxdevsuffix="Lux"            end
 if not (nightdevice)     then nightdevice="Natt"            end
 if not (luxlimiton)      then luxlimiton=10                 end
 if not (luxlimitoff)     then luxlimitoff=20                end
-if not (onretrans)       then onretrans=20                    end
+if not (onretrans)       then onretrans=50                  end
 
 -- for i, v in pairs(otherdevices_svalues) do print("name=" ..  i .. " svalue=" .. v .. "<--") end
 -- for i, v in pairs(otherdevices) do print("name='" ..  i .. "' otherdevice=" .. v .. "<--") end
@@ -68,16 +68,16 @@ function dbg(lvl,s)
 end
 
 function timedifference(s)
-	year = string.sub(s, 1, 4)
-	month = string.sub(s, 6, 7)
-	day = string.sub(s, 9, 10)
-	hour = string.sub(s, 12, 13)
-	minutes = string.sub(s, 15, 16)
-	seconds = string.sub(s, 18, 19)
-	t1 = os.time()
-	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difference = os.difftime (t1, t2)
-	return math.floor(difference)
+    year = string.sub(s, 1, 4)
+    month = string.sub(s, 6, 7)
+    day = string.sub(s, 9, 10)
+    hour = string.sub(s, 12, 13)
+    minutes = string.sub(s, 15, 16)
+    seconds = string.sub(s, 18, 19)
+    t1 = os.time()
+    t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
+    difference = os.difftime (t1, t2)
+    return math.floor(difference)
 end
  
 function timetest(opertime,stem)
@@ -85,32 +85,32 @@ function timetest(opertime,stem)
         return true
     end
     if ( opertime == "l" or opertime == "L" ) then
-		luxdev=stem .. " " .. luxdevsuffix
-		luxval=otherdevices[luxdev]
-		if (not luxval) then
+        luxdev=stem .. " " .. luxdevsuffix
+        luxval=otherdevices[luxdev]
+        if (not luxval) then
             -- Try a base lux device as a fallback
             luxdev=luxdevsuffix
             luxval=otherdevices[luxdev]
         end
-		if (not luxval) then
-			print("ERROR: Thers is no light sensor named" .. luxdev .. " or " .. luxdevsuffix)
+        if (not luxval) then
+            print("ERROR: Thers is no light sensor named" .. luxdev .. " or " .. luxdevsuffix)
         else
             dbg(3, "Light sensor '" .. luxdev .. "' is now '" .. luxval .. "' Threshold is < " .. luxlimiton) 
             if ( tonumber(luxval) < luxlimiton ) then
                 return true
             end
-		end
+        end
         return false
     end
     if opertime == "N" then
-		if ( otherdevices[nightdevice] == "On" ) then
+        if ( otherdevices[nightdevice] == "On" ) then
             return true
         else
             return false
         end
     end
     if opertime == "D" then
-		if ( otherdevices[nightdevice] == "Off" ) then
+        if ( otherdevices[nightdevice] == "Off" ) then
             return true
         else
             return false
@@ -146,21 +146,21 @@ irdev=next(devicechanged)
 iir=string.find(irdev,"IR(",1,true) 
 irstate=devicechanged[irdev]
 if (iir and ( irstate == "On" ))  then
-	basedev=string.sub(irdev,1,iir-2)
-	if irdev:sub(iir+3,iir+3) == "g" then
-		group="Group:"
-		imode=iir+4
-		onmode = irdev:sub(imode,imode)
-		switchdev=basedev .. " " .. switchdevsuffix
-		switchval=otherdevices_scenesgroups[switchdev]
-		switchdev=group..basedev .. " " .. switchdevsuffix
-	else
-		group=""
-		imode=iir+3
-		onmode = irdev:sub(imode,imode)
-		switchdev=basedev .. " " .. switchdevsuffix
-		switchval=otherdevices[switchdev]
-	end
+    basedev=string.sub(irdev,1,iir-2)
+    if irdev:sub(iir+3,iir+3) == "g" then
+        group="Group:"
+        imode=iir+4
+        onmode = irdev:sub(imode,imode)
+        switchdev=basedev .. " " .. switchdevsuffix
+        switchval=otherdevices_scenesgroups[switchdev]
+        switchdev=group..basedev .. " " .. switchdevsuffix
+    else
+        group=""
+        imode=iir+3
+        onmode = irdev:sub(imode,imode)
+        switchdev=basedev .. " " .. switchdevsuffix
+        switchval=otherdevices[switchdev]
+    end
     if (not switchval) then
         print("ERROR: IR sensor '"..irdev.."' has no corresponding light switch/group named '"..switchdev.."'")
         return commandArray
@@ -190,9 +190,12 @@ if (iir and ( irstate == "On" ))  then
 
     if ( group == "" ) then
         dt = timedifference(otherdevices_lastupdate[switchdev])
+        dtdev = switchdev
     else
-        -- no retransmit for groups / scenes
-        dt = 0
+        -- no retransmit for groups / scenes - check IR device instead / avoid faulty sensors to flood system
+        dt = timedifference(otherdevices_lastupdate[irdev])
+        if ( not dt ) then dt = 0 end
+        dtdev = irdev
     end
     tt = timetest(onmode,basedev,switchval)
     dbg(5,"TimeTest="..tostring(tt).." irdev='"..irdev.."' switchdev="..switchdev.." switchval="..switchval.." onmode="..onmode.." onduration="..onduration.." dt="..dt)
@@ -208,10 +211,9 @@ if (iir and ( irstate == "On" ))  then
         elseif ( endtime > 0 and onretrans > 0 and dt > onretrans ) then
             table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
             table.insert(commandArray,{ [switchdev] = 'On' })
-            dbg(1,"IR device "..irdev.." state "..irstate.." - Repeat trigger ("..dt..">"..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
+            dbg(1,"IR device "..irdev.." state "..irstate.." - Repeat trigger ("..dt..">"..onretrans..") for "..dtdev.." from "..switchval.." to On (mode="..onmode..")")
         elseif ( endtime > 0 ) then
-            table.insert(commandArray,{ ['Variable:' .. vardev] = tostring(timeoff) })
-            dbg(1,"IR device "..irdev.." state "..irstate.." - No repeat trigger so close to last trigger ("..dt.."<="..onretrans..") for "..switchdev.." from "..switchval.." to On (mode="..onmode..")")
+            dbg(1,"IR device "..irdev.." state "..irstate.." - No repeat trigger so close to last trigger ("..dt.."<="..onretrans..") for "..dtdev.." from "..switchval.." to On (mode="..onmode..")")
         else 
             dbg(1,"IR device "..irdev.." state "..irstate.." - assumed manual control for "..switchdev.." state " .. switchval)
         end
