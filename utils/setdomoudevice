@@ -22,7 +22,8 @@ if [ -z "${NAME##[0-9]*}" ]
 then
     IDX="${NAME}"
 else
-    IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=all&used=true" | jq -r ".result[] | select ( .Name == \"${NAME}\" )| .idx" )
+    #IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=all&used=true" | jq -r ".result[] | select ( .Name == \"${NAME}\" )| .idx" )
+    IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=devices_list" | jq -r ".result[] | select ( .name == \"${NAME}\" ) | .idx" )
 
 	if [ -z "${IDX}" ]
 	then

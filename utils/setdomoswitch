@@ -23,7 +23,8 @@ if [ -z "${NAME##[0-9]*}" ]
 then
     IDX="${NAME}"
 else
-	IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=light" |awk -F'"' '/"Name" :/ { printf $4 "=" }; /"idx" :/ { printf $4 "\n" }' | awk -F= "/^${NAME}=/ { print \$2 }" )
+	#IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=light" |awk -F'"' '/"Name" :/ { printf $4 "=" }; /"idx" :/ { printf $4 "\n" }' | awk -F= "/^${NAME}=/ { print \$2 }" )
+    IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=devices_list" | jq -r ".result[] | select ( .name == \"${NAME}\" ) | .idx" )
 
 	if [ -z "${IDX}" ]
 	then
