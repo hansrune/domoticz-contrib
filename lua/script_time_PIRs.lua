@@ -84,17 +84,15 @@ for irdev,irstate in pairs(otherdevices) do
                 if ( endtime > 0 ) then
                     if ( timenow > endtime ) then
                         if ( switchval == "Off" ) then
-                            dbg(3, "Device '" .. switchdev .. "' is already '" .. switchval .. "' for sensor '" .. irdev .. "'")
+                            dbg(3, "Device " .. switchdev .. " is already " .. switchval .. " for sensor " .. irdev )
                         else 
-                            dbg(1, "Switching off '" .. switchdev .. "' (state '" .. switchval .. "') for sensor '" .. irdev .. "'" )
                             table.insert(commandArray,{ [switchdev] = 'Off' })
-                            table.insert(commandArray,{ ['Variable:' .. vardev] = '-1' })
                         end
                     else
-                        dbg(3, "'" .. switchdev .. "' has " .. timeleft .. " seconds left before switching off. Sensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
+                        dbg(3, "'" .. switchdev .. "' has " .. timeleft .. " seconds left before switching off. Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
                     end
                 else
-                    dbg(5, "'" .. switchdev .. "' has no active timer and state is '" .. switchval .. "' Sensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
+                    dbg(5, "'" .. switchdev .. "' has no active timer and state is " .. switchval .. " Ssensor '" .. irdev .. "' changed at " .. otherdevices_lastupdate[irdev])
                 end
             else
                 print("WARNING: IR sensor '"..irdev.."' has no corresponding uservariable named '"..vardev.."'. Skipping device")
