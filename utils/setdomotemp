@@ -4,7 +4,7 @@
 #
 PROG=$( basename $0 ) 
 SERVER="http://127.0.0.1:8080"
-CURLARGS='-s -i -H "Accept: application/json"'
+CURLARGS='-s -H "Accept: application/json"'
 DBGPRINT=${DBGPRINT:-":"}
 DBGPRINT=${DBGPRINT:-"logger -t ${PROG} -p user.debug"}
 LOGINF=${LOGINF:-"logger -t ${PROG} -p user.info"}
@@ -23,7 +23,6 @@ if [ -z "${NAME##[0-9]*}" ]
 then
     IDX="${NAME}"
 else
-	#IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=devices&filter=temp" |awk -F'"' '/"Name" :/ { printf $4 "=" }; /"idx" :/ { printf $4 "\n" }' | awk -F= "/^${NAME}=/ { print \$2 }" )
     IDX=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=devices_list" | jq -r ".result[] | select ( .name == \"${NAME}\" ) | .idx" )
 
 	if [ -z "${IDX}" ]
@@ -33,15 +32,10 @@ else
 	fi
 fi
 
-RETURN=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=udevice&idx=${IDX}&nvalue=0&svalue=${VALUE}" | awk -F'"' '/status|title/ { printf $4 " " }' )
-if [[ $? -eq 0 ]] && [[ $RETURN =~ "OK" ]]
-then
-	echo "$RETURN"
-	exit 0
-else
-	echo "ERROR: $RETURN"
-	exit 3
-fi
+RETURN=$( curl ${CURLARGS} "${SERVER}/json.htm?type=command&param=udevice&idx=${IDX}&nvalue=0&svalue=${VALUE}" | jq -r '.status' )
+echo "$RETURN"
+if [[ $? -eq 0 ]] && [[ $RETURN =~ "OK" ]] && exit 0
+exit 3
 
 # :tabSize=4:indentSize=4:noTabs=true
 # vim:ts=4:sw=4
