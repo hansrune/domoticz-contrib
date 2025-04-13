@@ -76,42 +76,42 @@ for devname, devvalue in pairs(devicechanged)
 do
     if (debug) then print(devname .. " changed - value " .. devvalue) end
     if (devname == heatpumpmodeswitchdev) then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=devvalue
         heatpumpfanvalue=otherdevices[heatpumpfandev]
         heatpumpvdirvalue=otherdevices[heatpumpvdirdev]
         heatpumpflowvalue=otherdevices[heatpumpflowdev]
         heatpumpsettemp=otherdevices[heatpumpthermostatdev]
     elseif (devname == heatpumpvdirdev) then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=otherdevices[heatpumpmodeswitchdev]
         heatpumpfanvalue=otherdevices[heatpumpfandev]
         heatpumpvdirvalue=devvalue
         heatpumpflowvalue=otherdevices[heatpumpflowdev]
         heatpumpsettemp=otherdevices[heatpumpthermostatdev]
     elseif (devname == heatpumpfandev) then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=otherdevices[heatpumpmodeswitchdev]
         heatpumpfanvalue=devvalue
         heatpumpvdirvalue=otherdevices[heatpumpvdirdev]
         heatpumpflowvalue=otherdevices[heatpumpflowdev]
         heatpumpsettemp=otherdevices[heatpumpthermostatdev]
     elseif (devname == heatpumpthermostatdev) then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=otherdevices[heatpumpmodeswitchdev]
         heatpumpfanvalue=otherdevices[heatpumpfandev]
         heatpumpvdirvalue=otherdevices[heatpumpvdirdev]
         heatpumpflowvalue=otherdevices[heatpumpflowdev]
         heatpumpsettemp=devvalue
     elseif (devname == heatpumpthermostatdev .. "_Utility") then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=otherdevices[heatpumpmodeswitchdev]
         heatpumpfanvalue=otherdevices[heatpumpfandev]
         heatpumpvdirvalue=otherdevices[heatpumpvdirdev]
         heatpumpflowvalue=otherdevices[heatpumpflowdev]
         heatpumpsettemp=devvalue
     elseif (devname == heatpumpflowdev) then
-        if (logswitch) then print(devname .. " changed - value " .. devvalue) end
+		if (logswitch) then print(devname .. " changed - value " .. devvalue) end
         heatpumpmodevalue=otherdevices[heatpumpmodeswitchdev]
         heatpumpfanvalue=otherdevices[heatpumpfandev]
         heatpumpvdirvalue=otherdevices[heatpumpvdirdev]
@@ -179,13 +179,18 @@ do
     end
 
     -- http://192.168.0.19/control?cmd=heatpumpir,mitsubishi_fd,1,1,0,23,0,0
+	urldelay = 0
 	for espeasyip in espdevices:gmatch("%S+") do
 		espeasyprefix=espeasyip .. "/control?cmd=heatpumpir," .. heatpumpmodel .. ","
 		urlcommand=espeasyprefix .. heatpumpsetpower .. "," .. heatpumpsetmode .. "," .. heatpumpsetfanspeed .. ","
 		urlcommand=urlcommand .. heatpumpsettemp .. "," .. heatpumpsetvdir .. "," .. heatpumpsethdir
+		if ( urldelay > 0 ) then
+			urlcommand = urlcommand ..  ' AFTER ' .. string.format("%.1f", urldelay / 10)
+		end
 		if (logging) then 
 			print("heatpump: " .. devname .. " set to " .. devvalue .. " --> http://" .. urlcommand)
 		end
+		urldelay = urldelay + 8
 		-- commandArray['OpenURL']=urlcommand
 		table.insert (commandArray, { ['OpenURL'] = urlcommand } )
     end
