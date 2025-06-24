@@ -26,8 +26,8 @@ repeatdelta=60
 -- Include strings are plain text matches
 -- Exclude strings are pattern matches
 --
-included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Ventil", "Avfukter", "Garageport", "Fontene", "AudioVideo" };
-excluded = { "^Vanning", "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
+included = { "Ovn", "Lys", "Brannalarm", "Varmepumpe", "Avfukter", "Garageport", "Fontene", "AudioVideo" };
+excluded = { "Vanning", "Ventil", "Sstue", "M3", "IR", "AlarmKey", "Ringe", "klokke", "Brann", "Temp", "ryter", "Jule", "Unknown" };
 
 --
 -- No changes should be needed below here
